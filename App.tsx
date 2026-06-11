@@ -13,6 +13,7 @@ import {
   Poppins_700Bold,
 } from '@expo-google-fonts/poppins';
 import { AuthProvider } from './src/context/AuthContext';
+import { ThemeProvider } from './src/context/ThemeContext';
 import RootNavigator from './src/navigation';
 import { mintaIzinNotifikasi, jadwalkanReminderHarian } from './src/services/NotificationService';
 
@@ -50,15 +51,17 @@ export default function App() {
   if (!fontsLoaded) return null;
 
   return (
-    <AuthProvider>
-      <SafeAreaProvider>
-        <NavigationContainer>
-          <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-            <StatusBar style="light" />
-            <RootNavigator />
-          </View>
-        </NavigationContainer>
-      </SafeAreaProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <SafeAreaProvider>
+          <NavigationContainer>
+            <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+              <StatusBar style="light" />
+              <RootNavigator />
+            </View>
+          </NavigationContainer>
+        </SafeAreaProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel — Presensi Guru SD Bintang Juara</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root{
+  --red:#1565C0;--red-d:#0D47A1;--red-l:#BBDEFB;--red-xl:#EBF3FD;
+  --gold:#FFC107;--gold-d:#FF8F00;--gold-l:#FFF8E1;
+  --white:#fff;--bg:#F0F2F5;
+  --t1:#1C1C2E;--t2:#52527A;--t3:#9898B0;--t4:#C8C8DC;
+  --border:#E4E4F0;--shadow:0 2px 12px rgba(0,0,0,.07);
+  --green-d:#1B5E20;--green:#43A047;--green-l:#E8F5E9;
+  --orange-d:#E65100;--orange:#FB8C00;--orange-l:#FFF3E0;
+  --blue-d:#1565C0;--blue:#1976D2;--blue-l:#E3F2FD;
+  --purple-d:#6A1B9A;--purple-l:#F3E5F5;
+  --sw:240px;--hh:60px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Poppins',sans-serif;background:var(--bg);color:var(--t1)}
+
+/* LOGIN */
+#login-page{min-height:100vh;background:linear-gradient(135deg,var(--red-d),var(--red) 50%,#90CAF9);display:flex;align-items:center;justify-content:center;padding:20px}
+.login-card{background:var(--white);border-radius:20px;padding:40px;width:420px;max-width:100%;box-shadow:0 24px 64px rgba(0,0,0,.2)}
+.lc-logo{text-align:center;margin-bottom:28px}
+.lc-logo .lb{width:72px;height:72px;background:var(--red-xl);border-radius:18px;display:inline-flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:12px;border:2px solid var(--red-l)}
+.lc-logo h2{font-size:17px;font-weight:700;color:var(--t1)}
+.lc-logo p{font-size:12px;color:var(--t3);margin-top:2px}
+.role-tabs{display:flex;background:var(--bg);border-radius:10px;padding:3px;margin-bottom:24px;gap:3px}
+.rtab{flex:1;padding:8px;text-align:center;border-radius:8px;font-size:12px;font-weight:600;color:var(--t3);cursor:pointer;border:none;background:transparent;font-family:'Poppins',sans-serif}
+.rtab.on{background:var(--white);color:var(--red);box-shadow:var(--shadow)}
+.fg{margin-bottom:16px}
+.flbl{font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:7px}
+.fiw{position:relative}
+.fi{width:100%;padding:12px 14px 12px 40px;border:1.5px solid var(--border);border-radius:11px;font-family:'Poppins',sans-serif;font-size:13px;color:var(--t1);background:var(--bg);outline:none;transition:border-color .2s}
+.fi:focus{border-color:var(--red)}
+.fic{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--t4);font-size:14px}
+.lbtn{width:100%;padding:13px;background:linear-gradient(135deg,var(--red),var(--red-d));color:#fff;border:none;border-radius:11px;font-family:'Poppins',sans-serif;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;box-shadow:0 4px 14px rgba(21,101,192,.35);display:flex;align-items:center;justify-content:center;gap:8px}
+
+/* APP SHELL */
+#app{display:none;min-height:100vh}
+
+/* SIDEBAR */
+#sidebar{position:fixed;top:0;left:0;width:var(--sw);height:100vh;background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100;box-shadow:2px 0 12px rgba(0,0,0,.04)}
+.sb-brand{padding:0 18px;height:var(--hh);display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border)}
+.sb-logo{width:34px;height:34px;background:var(--red-xl);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;border:1.5px solid var(--red-l)}
+.sb-title{font-size:13px;font-weight:700;color:var(--t1);line-height:1.2}
+.sb-title span{font-size:10px;font-weight:400;color:var(--t3);display:block}
+.sb-nav{flex:1;padding:12px 0;overflow-y:auto}
+.sb-sec{font-size:9px;font-weight:700;color:var(--t4);text-transform:uppercase;letter-spacing:.8px;padding:12px 18px 5px}
+.sbi{display:flex;align-items:center;gap:11px;padding:10px 18px;cursor:pointer;font-size:13px;font-weight:500;color:var(--t2);transition:all .15s;position:relative;margin:1px 8px;border-radius:9px}
+.sbi:hover{background:var(--bg);color:var(--t1)}
+.sbi.on{background:var(--red-xl);color:var(--red);font-weight:600}
+.sbi.on::before{content:'';position:absolute;left:-8px;top:50%;transform:translateY(-50%);width:3px;height:20px;background:var(--red);border-radius:0 3px 3px 0}
+.sbi i{width:18px;text-align:center;font-size:15px}
+.sb-badge{margin-left:auto;background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px}
+.sb-foot{padding:14px 18px;border-top:1px solid var(--border)}
+.sb-user{display:flex;align-items:center;gap:10px}
+.sb-av{width:34px;height:34px;background:linear-gradient(135deg,var(--red),var(--red-d));border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;flex-shrink:0}
+.sb-uinfo{flex:1;min-width:0}
+.sb-uname{font-size:12px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-urole{font-size:10px;color:var(--t3)}
+
+/* MAIN */
+#main{margin-left:var(--sw);min-height:100vh;display:flex;flex-direction:column}
+.topbar{height:var(--hh);background:var(--white);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:99;box-shadow:0 1px 8px rgba(0,0,0,.04)}
+.tb-title{font-size:16px;font-weight:700;color:var(--t1);flex:1}
+.tb-title span{font-size:12px;font-weight:400;color:var(--t3);margin-left:8px}
+.tb-search{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 12px;width:220px}
+.tb-search input{border:none;background:transparent;font-family:'Poppins',sans-serif;font-size:12px;color:var(--t1);outline:none;width:100%}
+.tb-search i{color:var(--t4);font-size:13px}
+.tb-icon{width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;color:var(--t2);cursor:pointer;font-size:15px;position:relative}
+.tb-icon:hover{background:var(--bg)}
+.notif-dot{position:absolute;top:7px;right:7px;width:7px;height:7px;background:var(--red);border-radius:50%;border:1.5px solid var(--white)}
+.tb-date{font-size:12px;color:var(--t3);font-weight:500;white-space:nowrap}
+
+/* CONTENT */
+.content{flex:1;padding:24px;overflow-y:auto}
+.panel{display:none}
+.panel.on{display:block}
+
+/* SHARED */
+.page-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:16px}
+.page-hdr h2{font-size:18px;font-weight:700;color:var(--t1)}
+.page-hdr p{font-size:12px;color:var(--t3);margin-top:2px}
+.page-hdr-right{display:flex;gap:8px;align-items:center;flex-shrink:0}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:9px;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:opacity .15s;white-space:nowrap}
+.btn:hover{opacity:.85}
+.btn-red{background:var(--red);color:#fff;box-shadow:0 3px 10px rgba(21,101,192,.3)}
+.btn-outline{background:var(--white);color:var(--red);border:1.5px solid var(--red)}
+.btn-ghost{background:var(--white);color:var(--t2);border:1px solid var(--border)}
+.btn-green{background:var(--green);color:#fff}
+.btn-sm{padding:6px 12px;font-size:11px}
+
+/* STAT ROW */
+.stat-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px}
+.sc{background:var(--white);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);display:flex;align-items:center;gap:14px;border-left:4px solid transparent}
+.sc-r{border-color:var(--red)}.sc-g{border-color:var(--green)}.sc-y{border-color:var(--gold-d)}.sc-o{border-color:var(--orange)}.sc-b{border-color:var(--blue)}
+.sc-ico{width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.sc-r .sc-ico{background:var(--red-xl)}.sc-g .sc-ico{background:var(--green-l)}.sc-y .sc-ico{background:var(--gold-l)}.sc-o .sc-ico{background:var(--orange-l)}.sc-b .sc-ico{background:var(--blue-l)}
+.sc-num{font-size:24px;font-weight:700;color:var(--t1);line-height:1}
+.sc-lbl{font-size:11px;color:var(--t3);margin-top:3px}
+.sc-delta{font-size:10px;font-weight:600;margin-top:2px}
+.delta-up{color:var(--green)}.delta-dn{color:var(--red)}
+
+/* CARD */
+.card{background:var(--white);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px}
+.card-hdr{padding:16px 18px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-hdr h3{font-size:14px;font-weight:600;color:var(--t1)}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;padding:11px 16px;background:var(--bg);border-bottom:1px solid var(--border);white-space:nowrap;text-align:left}
+td{font-size:13px;color:var(--t1);padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:#FAFBFF}
+.td-name{font-weight:600}.td-sub{font-size:11px;color:var(--t3);margin-top:2px}
+
+/* BADGE */
+.bdg{font-size:10px;font-weight:600;padding:3px 9px;border-radius:20px;display:inline-block;white-space:nowrap}
+.bdg-g{background:var(--green-l);color:var(--green-d)}.bdg-r{background:var(--red-l);color:var(--red-d)}
+.bdg-y{background:var(--gold-l);color:var(--gold-d)}.bdg-o{background:var(--orange-l);color:var(--orange-d)}
+.bdg-b{background:var(--blue-l);color:var(--blue-d)}.bdg-gray{background:var(--bg);color:var(--t3)}
+
+/* FILTER ROW */
+.frow{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.fsel{padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:'Poppins',sans-serif;font-size:12px;color:var(--t1);background:var(--white);outline:none;cursor:pointer}
+.fsel:focus{border-color:var(--red)}
+
+/* AVATAR */
+.av-row{display:flex;align-items:center;gap:10px}
+.av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;flex-shrink:0}
+
+/* TACT */
+.tact{display:flex;gap:6px}
+
+/* GRID */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+
+/* DONUT */
+.donut-wrap{display:flex;align-items:center;gap:20px;margin-bottom:16px}
+.donut{width:100px;height:100px;border-radius:50%;background:conic-gradient(var(--green) 0% 75%,var(--gold) 75% 83%,var(--red) 83% 88%,var(--t4) 88% 100%);display:flex;align-items:center;justify-content:center;position:relative}
+.donut::after{content:'';position:absolute;width:60px;height:60px;background:var(--white);border-radius:50%}
+.dl{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--t2);margin-bottom:5px}
+.dl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* MINI BAR */
+.mini-bars{display:flex;align-items:flex-end;gap:4px;height:56px;margin-top:8px}
+.mbar{flex:1;border-radius:3px 3px 0 0;background:var(--red-l)}
+.mbar.hi{background:var(--red)}
+
+/* ALERT */
+.alert-warn{background:linear-gradient(135deg,var(--gold-l),#FFFDE7);border:1px solid var(--gold);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.alert-warn i{color:var(--gold-d);font-size:18px;flex-shrink:0}
+.alert-warn p{font-size:12px;color:var(--gold-d);font-weight:500}
+.alert-warn a{color:var(--red);font-weight:600;text-decoration:none;margin-left:4px;cursor:pointer}
+
+/* LIVE BADGE */
+.live-bar{display:flex;align-items:center;justify-content:center;gap:8px;padding:9px;font-size:12px;color:var(--red-d);background:var(--red-xl);border-radius:8px;margin-bottom:16px;font-weight:500}
+.live-dot{width:8px;height:8px;background:var(--red);border-radius:50%;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* APPROVAL CARDS */
+.appr-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.appr-card{background:var(--white);border-radius:13px;padding:16px;box-shadow:var(--shadow);border:1px solid var(--border);display:flex;gap:14px;align-items:flex-start}
+.appr-ico{width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.appr-body{flex:1}
+.appr-name{font-size:14px;font-weight:600;color:var(--t1)}
+.appr-type{font-size:12px;color:var(--t3);margin-top:2px}
+.appr-meta{display:flex;gap:10px;margin-top:6px;flex-wrap:wrap;font-size:11px;color:var(--t2)}
+.appr-meta span{display:flex;align-items:center;gap:4px}
+.appr-note{font-size:12px;color:var(--t2);margin-top:8px;background:var(--bg);border-radius:8px;padding:8px 10px;line-height:1.5}
+.appr-acts{display:flex;gap:8px;margin-top:10px}
+
+/* TAB ROW */
+.tab-row{display:flex;border-bottom:2px solid var(--border)}
+.tab-btn{padding:12px 20px;font-family:'Poppins',sans-serif;font-size:13px;font-weight:600;color:var(--t3);background:transparent;border:none;cursor:pointer;position:relative}
+.tab-btn.on{color:var(--red)}
+.tab-btn.on::after{content:'';position:absolute;bottom:-2px;left:0;right:0;height:2px;background:var(--red)}
+
+/* PAYROLL INPUTS */
+.pay-inp{width:108px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;font-family:'Poppins',sans-serif;font-size:11px;text-align:right;color:var(--t1);background:var(--white)}
+.pay-net{font-weight:700;color:var(--red);font-size:13px}
+
+/* SETTINGS */
+.setsec{background:var(--white);border-radius:14px;box-shadow:var(--shadow);margin-bottom:16px}
+.setsec-hdr{padding:15px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.setsec-hdr i{font-size:16px;color:var(--red);width:20px;text-align:center}
+.setsec-hdr h3{font-size:14px;font-weight:600;color:var(--t1)}
+.setrow{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:20px}
+.setrow:last-child{border-bottom:none}
+.set-lbl{font-size:13px;font-weight:500;color:var(--t1)}
+.set-sub{font-size:11px;color:var(--t3);margin-top:2px}
+.set-inp{padding:8px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:'Poppins',sans-serif;font-size:13px;color:var(--t1);background:var(--bg);outline:none;text-align:center;width:120px}
+.set-inp:focus{border-color:var(--red)}
+.toggle{width:44px;height:24px;background:var(--t4);border-radius:12px;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0}
+.toggle.on{background:var(--green)}
+.toggle::after{content:'';position:absolute;width:18px;height:18px;background:#fff;border-radius:50%;top:3px;left:3px;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.toggle.on::after{left:23px}
+.day-chip{font-size:10px;font-weight:600;padding:4px 8px;border-radius:6px;cursor:pointer;border:1.5px solid transparent}
+.day-chip.on{background:var(--red-xl);color:var(--red);border-color:var(--red-l)}
+.day-chip.off{background:var(--bg);color:var(--t3)}
+
+/* MAP PLACEHOLDER */
+.map-ph{background:linear-gradient(135deg,var(--blue-l),#E8F5E9);border-radius:10px;height:80px;width:200px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;border:2px dashed var(--border)}
+.map-ph i{font-size:22px;color:var(--blue)}
+.map-ph p{font-size:10px;color:var(--t3)}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+.modal-overlay.open{display:flex}
+.modal{background:var(--white);border-radius:16px;width:540px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.25)}
+.modal-hdr{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--white);z-index:1}
+.modal-hdr h3{font-size:15px;font-weight:700;color:var(--t1)}
+.modal-close{width:30px;height:30px;border-radius:7px;background:var(--bg);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--t2);font-size:14px}
+.modal-body{padding:20px 22px}
+.modal-foot{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
+.mfr{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.mfg{margin-bottom:14px}
+.mfl{font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px}
+.mfi{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:'Poppins',sans-serif;font-size:13px;color:var(--t1);background:var(--bg);outline:none}
+.mfi:focus{border-color:var(--red)}
+
+/* PAGINATION */
+.pagination{padding:12px 18px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.pg-info{font-size:12px;color:var(--t3)}
+.pg-btns{display:flex;gap:5px}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-page">
+  <div class="login-card">
+    <div class="lc-logo">
+      <div class="lb">⭐</div>
+      <h2>SD BINTANG JUARA</h2>
+      <p>Admin Panel · Sistem Presensi Guru</p>
+    </div>
+    <div class="role-tabs">
+      <button class="rtab on">Admin</button>
+      <button class="rtab">Bendahara</button>
+      <button class="rtab">Kepala Sekolah</button>
+    </div>
+    <div class="fg">
+      <label class="flbl">Email</label>
+      <div class="fiw"><i class="fas fa-envelope fic"></i>
+        <input class="fi" type="email" placeholder="admin@bintangjuara.sch.id">
+      </div>
+    </div>
+    <div class="fg">
+      <label class="flbl">Password</label>
+      <div class="fiw"><i class="fas fa-lock fic"></i>
+        <input class="fi" type="password" placeholder="••••••••">
+        <i class="fas fa-eye" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);color:var(--t4);font-size:13px;cursor:pointer"></i>
+      </div>
+    </div>
+    <button class="lbtn" onclick="showApp()">
+      <i class="fas fa-sign-in-alt"></i> Masuk ke Dashboard
+    </button>
+    <p style="text-align:center;font-size:11px;color:var(--t4);margin-top:20px">SD Bintang Juara · Admin v1.0 · 2025</p>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div class="sb-brand">
+      <div class="sb-logo">⭐</div>
+      <div class="sb-title">Bintang Juara <span>Admin Panel</span></div>
+    </div>
+    <nav class="sb-nav">
+      <div class="sb-sec">Main Menu</div>
+      <div class="sbi on" data-panel="dashboard"><i class="fas fa-th-large"></i> Dashboard</div>
+      <div class="sbi" data-panel="guru"><i class="fas fa-chalkboard-teacher"></i> Data Guru</div>
+      <div class="sbi" data-panel="absensi"><i class="fas fa-calendar-check"></i> Absensi Harian</div>
+      <div class="sbi" data-panel="izin"><i class="fas fa-file-signature"></i> Manajemen Izin <span class="sb-badge">3</span></div>
+      <div class="sb-sec">Keuangan</div>
+      <div class="sbi" data-panel="payroll"><i class="fas fa-money-check-alt"></i> Payroll / Gaji</div>
+      <div class="sb-sec">Sistem</div>
+      <div class="sbi" data-panel="settings"><i class="fas fa-cog"></i> Pengaturan</div>
+    </nav>
+    <div class="sb-foot">
+      <div class="sb-user">
+        <div class="sb-av">A</div>
+        <div class="sb-uinfo">
+          <div class="sb-uname">Admin Utama</div>
+          <div class="sb-urole">Administrator</div>
+        </div>
+        <i class="fas fa-sign-out-alt" style="color:var(--t3);cursor:pointer;font-size:14px" onclick="logout()" title="Logout"></i>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div id="main">
+    <div class="topbar">
+      <div class="tb-title" id="tb-title">Dashboard <span>Overview</span></div>
+      <div class="tb-search"><i class="fas fa-search"></i><input placeholder="Cari guru, data..."></div>
+      <div class="tb-date"><i class="fas fa-calendar" style="margin-right:5px;color:var(--red)"></i>Selasa, 3 Jun 2025</div>
+      <div class="tb-icon"><i class="fas fa-bell"></i><span class="notif-dot"></span></div>
+      <div class="tb-icon"><i class="fas fa-th"></i></div>
+    </div>
+
+    <div class="content">
+
+      <!-- ===== DASHBOARD ===== -->
+      <div id="panel-dashboard" class="panel on">
+        <div class="live-bar">
+          <span class="live-dot"></span>
+          <strong>LIVE</strong> · Presensi Hari Ini: Selasa, 3 Juni 2025 · Diperbarui 09:41 WIB
+        </div>
+
+        <div class="stat-row">
+          <div class="sc sc-b"><div class="sc-ico">👩‍🏫</div><div><div class="sc-num">24</div><div class="sc-lbl">Total Guru</div><div class="sc-delta delta-up">semua aktif</div></div></div>
+          <div class="sc sc-g"><div class="sc-ico">✅</div><div><div class="sc-num">18</div><div class="sc-lbl">Hadir Hari Ini</div><div class="sc-delta delta-up">75% dari total</div></div></div>
+          <div class="sc sc-o"><div class="sc-ico">⏰</div><div><div class="sc-num">3</div><div class="sc-lbl">Terlambat</div><div class="sc-delta delta-dn">↑ vs kemarin</div></div></div>
+          <div class="sc sc-y"><div class="sc-ico">📋</div><div><div class="sc-num">2</div><div class="sc-lbl">Izin</div><div class="sc-delta delta-up">sudah approved</div></div></div>
+          <div class="sc sc-r"><div class="sc-ico">❌</div><div><div class="sc-num">1</div><div class="sc-lbl">Alpha</div><div class="sc-delta delta-dn">belum konfirmasi</div></div></div>
+        </div>
+
+        <div class="alert-warn">
+          <i class="fas fa-exclamation-circle"></i>
+          <p>Ada <strong>3 pengajuan izin</strong> menunggu persetujuan Anda. <a onclick="goPanel('izin')">Review sekarang →</a></p>
+        </div>
+
+        <div class="g2">
+          <div class="card" style="margin-bottom:0">
+            <div class="card-hdr"><h3>Presensi Hari Ini</h3><button class="btn btn-ghost btn-sm"><i class="fas fa-download"></i> Export</button></div>
+            <div class="tbl-wrap"><table>
+              <thead><tr><th>Guru</th><th>Check-In</th><th>Device</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td><div class="av-row"><div class="av" style="background:var(--red)">S</div><div><div class="td-name">Sari Dewi</div><div class="td-sub">Kelas 4A</div></div></div></td><td style="color:var(--green-d);font-weight:600">07:05</td><td><span class="bdg bdg-b">📍 GPS</span></td><td><span class="bdg bdg-g">Hadir</span></td></tr>
+                <tr><td><div class="av-row"><div class="av" style="background:var(--blue)">B</div><div><div class="td-name">Budi Santoso</div><div class="td-sub">Kelas 5B</div></div></div></td><td style="color:var(--orange-d);font-weight:600">08:12</td><td><span class="bdg bdg-y">👆 FP</span></td><td><span class="bdg bdg-o">Terlambat</span></td></tr>
+                <tr><td><div class="av-row"><div class="av" style="background:#7B1FA2">N</div><div><div class="td-name">Nita Rahma</div><div class="td-sub">Kelas 3A</div></div></div></td><td>—</td><td><span class="bdg bdg-gray">Manual</span></td><td><span class="bdg bdg-y">Izin Sakit</span></td></tr>
+                <tr><td><div class="av-row"><div class="av" style="background:var(--green)">R</div><div><div class="td-name">Rudi Hartono</div><div class="td-sub">Kelas 6C</div></div></div></td><td style="color:var(--green-d);font-weight:600">06:58</td><td><span class="bdg bdg-b">📍 GPS</span></td><td><span class="bdg bdg-g">Hadir</span></td></tr>
+                <tr><td><div class="av-row"><div class="av" style="background:var(--gold-d)">D</div><div><div class="td-name">Dewi Lestari</div><div class="td-sub">Kelas 1A</div></div></div></td><td>—</td><td>—</td><td><span class="bdg bdg-r">Alpha</span></td></tr>
+              </tbody>
+            </table></div>
+          </div>
+
+          <div class="card" style="margin-bottom:0">
+            <div class="card-hdr"><h3>Kehadiran Bulan Ini — Juni 2025</h3></div>
+            <div style="padding:16px">
+              <div class="donut-wrap">
+                <div class="donut"></div>
+                <div>
+                  <div class="dl"><div class="dl-dot" style="background:var(--green)"></div>Hadir: <strong style="margin-left:4px">75%</strong></div>
+                  <div class="dl"><div class="dl-dot" style="background:var(--gold)"></div>Izin: <strong style="margin-left:4px">8%</strong></div>
+                  <div class="dl"><div class="dl-dot" style="background:var(--red)"></div>Alpha: <strong style="margin-left:4px">4%</strong></div>
+                  <div class="dl"><div class="dl-dot" style="background:var(--t4)"></div>Terlambat: <strong style="margin-left:4px">13%</strong></div>
+                </div>
+              </div>
+              <div style="font-size:11px;font-weight:600;color:var(--t2);margin-bottom:5px">Tren 10 Hari Terakhir</div>
+              <div class="mini-bars">
+                <div class="mbar" style="height:70%"></div><div class="mbar hi" style="height:90%"></div>
+                <div class="mbar" style="height:80%"></div><div class="mbar hi" style="height:100%"></div>
+                <div class="mbar" style="height:75%"></div><div class="mbar" style="height:0%"></div>
+                <div class="mbar hi" style="height:95%"></div><div class="mbar" style="height:85%"></div>
+                <div class="mbar hi" style="height:100%"></div><div class="mbar" style="height:60%"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:9px;color:var(--t4)"><span>23 Mei</span><span>28 Mei</span><span>2 Jun</span><span>3 Jun</span></div>
+              <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:space-between">
+                <div style="text-align:center"><div style="font-size:18px;font-weight:700;color:var(--green-d)">87.5%</div><div style="font-size:10px;color:var(--t3)">Tingkat Kehadiran</div></div>
+                <div style="text-align:center"><div style="font-size:18px;font-weight:700;color:var(--orange-d)">4</div><div style="font-size:10px;color:var(--t3)">Terlambat Bulan Ini</div></div>
+                <div style="text-align:center"><div style="font-size:18px;font-weight:700;color:var(--red)">2</div><div style="font-size:10px;color:var(--t3)">Alpha Bulan Ini</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-hdr"><h3>Status Payroll — Juni 2025</h3><button class="btn btn-red btn-sm" onclick="goPanel('payroll')"><i class="fas fa-money-check-alt"></i> Kelola Payroll</button></div>
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>Guru</th><th>Jabatan</th><th>Hari Hadir</th><th>Gaji Bersih</th><th>Status</th><th>Aksi</th></tr></thead>
+            <tbody>
+              <tr><td><div class="td-name">Sari Dewi, S.Pd.</div><div class="td-sub">NIP 198504132010012005</div></td><td>Guru Kelas 4A</td><td>21/24</td><td><strong>Rp 4.850.000</strong></td><td><span class="bdg bdg-g">Sudah Dibayar</span></td><td><button class="btn btn-ghost btn-sm"><i class="fas fa-eye"></i> Lihat</button></td></tr>
+              <tr><td><div class="td-name">Budi Santoso, S.Pd.</div><div class="td-sub">NIP 198001152005011003</div></td><td>Guru Kelas 5B</td><td>20/24</td><td><strong>Rp 4.800.000</strong></td><td><span class="bdg bdg-y">Belum Dibayar</span></td><td><button class="btn btn-red btn-sm"><i class="fas fa-paper-plane"></i> Bayar</button></td></tr>
+            </tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- ===== DATA GURU ===== -->
+      <div id="panel-guru" class="panel">
+        <div class="page-hdr">
+          <div><h2>Data Guru</h2><p>Kelola data seluruh guru SD Bintang Juara</p></div>
+          <div class="page-hdr-right">
+            <button class="btn btn-ghost"><i class="fas fa-upload"></i> Import Excel</button>
+            <button class="btn btn-red" onclick="document.getElementById('modal-guru').classList.add('open')"><i class="fas fa-plus"></i> Tambah Guru</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="frow">
+            <input class="fsel" placeholder="🔍  Cari nama, NIP, email..." style="width:240px;border-radius:8px">
+            <select class="fsel"><option>Semua Kelas</option><option>Kelas 1</option><option>Kelas 2</option><option>Kelas 3</option><option>Kelas 4</option><option>Kelas 5</option><option>Kelas 6</option><option>Mata Pelajaran</option></select>
+            <select class="fsel"><option>Semua Status</option><option>Aktif</option><option>Cuti</option><option>Non-Aktif</option></select>
+            <button class="btn btn-ghost btn-sm" style="margin-left:auto"><i class="fas fa-file-excel"></i> Export Excel</button>
+          </div>
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>No</th><th>Nama Guru</th><th>NIP</th><th>Kelas / Jabatan</th><th>No. HP</th><th>Bergabung</th><th>Status</th><th>Aksi</th></tr></thead>
+            <tbody>
+              <tr><td style="color:var(--t3)">01</td><td><div class="av-row"><div class="av" style="background:var(--red)">S</div><div><div class="td-name">Sari Dewi, S.Pd.</div><div class="td-sub">sari@bintangjuara.sch.id</div></div></div></td><td style="font-family:monospace;font-size:12px">198504132010012005</td><td>Guru Kelas 4A</td><td>0812-3456-7890</td><td>Jan 2018</td><td><span class="bdg bdg-g">Aktif</span></td><td><div class="tact"><button class="btn btn-ghost btn-sm"><i class="fas fa-eye"></i></button><button class="btn btn-ghost btn-sm"><i class="fas fa-edit"></i></button><button class="btn btn-sm" style="background:var(--red-xl);color:var(--red)"><i class="fas fa-trash"></i></button></div></td></tr>
+              <tr><td style="color:var(--t3)">02</td><td><div class="av-row"><div class="av" style="background:var(--blue)">B</div><div><div class="td-name">Budi Santoso, S.Pd.</div><div class="td-sub">budi@bintangjuara.sch.id</div></div></div></td><td style="font-family:monospace;font-size:12px">198001152005011003</td><td>Guru Kelas 5B</td><td>0821-9876-5432</td><td>Mar 2015</td><td><span class="bdg bdg-g">Aktif</span></td><td><div class="tact"><button class="btn btn-ghost btn-sm"><i class="fas fa-eye"></i></button><button class="btn btn-ghost btn-sm"><i class="fas fa-edit"></i></button><button class="btn btn-sm" style="background:var(--red-xl);color:var(--red)"><i class="fas fa-trash"></i></button></div></td></tr>
+              <tr><td style="color:var(--t3)">03</td><td><div class="av-row"><div class="av" style="background:#7B1FA2">N</div><div><div class="td-name">Nita Rahma, S.Pd.</div><div class="td-sub">nita@bintangjuara.sch.id</div></div></div></td><td style="font-family:monospace;font-size:12px">199203202015042001</td><td>Guru Kelas 3A</td><td>0856-1122-3344</td><td>Jul 2020</td><td><span class="bdg bdg-g">Aktif</span></td><td><div class="tact"><button class="btn btn-ghost btn-sm"><i class="fas fa-eye"></i></button><button class="btn btn-ghost btn-sm"><i class="fas fa-edit"></i></button><button class="btn btn-sm" style="background:var(--red-xl);color:var(--red)"><i class="fas fa-trash"></i></button></div></td></tr>
+              <tr><td style="color:var(--t3)">04</td><td><div class="av-row"><div class="av" style="background:var(--green)">R</div><div><div class="td-name">Rudi Hartono, S.Pd.</div><div class="td-sub">rudi@bintangjuara.sch.id</div></div></div></td><td style="font-family:monospace;font-size:12px">197808102003011002</td><td>Guru Kelas 6C</td><td>0878-5566-7788</td><td>Sep 2012</td><td><span class="bdg bdg-g">Aktif</span></td><td><div class="tact"><button class="btn btn-ghost btn-sm"><i class="fas fa-eye"></i></button><button class="btn btn-ghost btn-sm"><i class="fas fa-edit"></i></button><button class="btn btn-sm" style="background:var(--red-xl);color:var(--red)"><i class="fas fa-trash"></i></button></div></td></tr>
+              <tr><td style="color:var(--t3)">05</td><td><div class="av-row"><div class="av" style="background:var(--gold-d)">D</div><div><div class="td-name">Dewi Lestari, S.Pd.</div><div class="td-sub">dewi@bintangjuara.sch.id</div></div></div></td><td style="font-family:monospace;font-size:12px">199506172019032008</td><td>Guru Kelas 1A</td><td>0895-3344-5566</td><td>Mar 2019</td><td><span class="bdg bdg-gray">Cuti</span></td><td><div class="tact"><button class="btn btn-ghost btn-sm"><i class="fas fa-eye"></i></button><button class="btn btn-ghost btn-sm"><i class="fas fa-edit"></i></button><button class="btn btn-sm" style="background:var(--red-xl);color:var(--red)"><i class="fas fa-trash"></i></button></div></td></tr>
+            </tbody>
+          </table></div>
+          <div class="pagination">
+            <span class="pg-info">Menampilkan 5 dari 24 guru</span>
+            <div class="pg-btns">
+              <button class="btn btn-ghost btn-sm">← Prev</button>
+              <button class="btn btn-red btn-sm">1</button>
+              <button class="btn btn-ghost btn-sm">2</button>
+              <button class="btn btn-ghost btn-sm">3</button>
+              <button class="btn btn-ghost btn-sm">Next →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== ABSENSI HARIAN ===== -->
+      <div id="panel-absensi" class="panel">
+        <div class="page-hdr">
+          <div><h2>Absensi Harian</h2><p>Rekap presensi seluruh guru per hari</p></div>
+          <div class="page-hdr-right">
+            <button class="btn btn-ghost"><i class="fas fa-file-pdf"></i> Export PDF</button>
+            <button class="btn btn-ghost"><i class="fas fa-file-excel"></i> Export Excel</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="frow">
+            <input class="fsel" type="date" value="2025-06-03" style="border-radius:8px">
+            <select class="fsel"><option>Semua Kelas</option><option>Kelas 1</option><option>Kelas 2</option><option>Kelas 3</option><option>Kelas 4</option><option>Kelas 5</option><option>Kelas 6</option></select>
+            <select class="fsel"><option>Semua Status</option><option>Hadir</option><option>Terlambat</option><option>Izin</option><option>Alpha</option></select>
+            <select class="fsel"><option>Semua Device</option><option>GPS Lokasi</option><option>Fingerprint</option><option>Manual</option></select>
+            <div style="margin-left:auto;display:flex;gap:12px;font-size:12px;align-items:center">
+              <span>Hadir: <strong style="color:var(--green-d)">18</strong></span>
+              <span>Terlambat: <strong style="color:var(--orange-d)">3</strong></span>
+              <span>Izin: <strong style="color:var(--gold-d)">2</strong></span>
+              <span>Alpha: <strong style="color:var(--red)">1</strong></span>
+            </div>
+          </div>
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>No</th><th>Nama Guru</th><th>Kelas</th><th>Check-In</th><th>Check-Out</th><th>Durasi</th><th>Device</th><th>Status</th><th>Aksi</th></tr></thead>
+            <tbody>
+              <tr><td style="color:var(--t3)">1</td><td><div class="td-name">Sari Dewi, S.Pd.</div></td><td>Kelas 4A</td><td><strong style="color:var(--green-d)">07:05</strong></td><td style="color:var(--t3)">aktif</td><td style="color:var(--t3)">—</td><td><span class="bdg bdg-b"><i class="fas fa-map-marker-alt"></i> GPS</span></td><td><span class="bdg bdg-g">Hadir</span></td><td><button class="btn btn-ghost btn-sm"><i class="fas fa-edit"></i> Edit</button></td></tr>
+              <tr><td style="color:var(--t3)">2</td><td><div class="td-name">Budi Santoso, S.Pd.</div></td><td>Kelas 5B</td><td><strong style="color:var(--orange-d)">08:12</strong><div class="td-sub">+42 mnt</div></td><td style="color:var(--t3)">aktif</td><td style="color:var(--t3)">—</td><td><span class="bdg bdg-y"><i class="fas fa-fingerprint"></i> FP</span></td><td><span class="bdg bdg-o">Terlambat</span></td><td><button class="btn btn-ghost btn-sm"><i class="fas fa-edit"></i> Edit</button></td></tr>
+              <tr><td style="color:var(--t3)">3</td><td><div class="td-name">Nita Rahma, S.Pd.</div></td><td>Kelas 3A</td><td>—</td><td>—</td><td>—</td><td><span class="bdg bdg-gray">Manual</span></td><td><span class="bdg bdg-y">Izin Sakit</span></td><td><button class="btn btn-ghost btn-sm"><i class="fas fa-edit"></i> Edit</button></td></tr>
+              <tr><td style="color:var(--t3)">4</td><td><div class="td-name">Rudi Hartono, S.Pd.</div></td><td>Kelas 6C</td><td><strong style="color:var(--green-d)">06:58</strong></td><td style="color:var(--t3)">aktif</td><td style="color:var(--t3)">—</td><td><span class="bdg bdg-b"><i class="fas fa-map-marker-alt"></i> GPS</span></td><td><span class="bdg bdg-g">Hadir</span></td><td><button class="btn btn-ghost btn-sm"><i class="fas fa-edit"></i> Edit</button></td></tr>
+              <tr><td style="color:var(--t3)">5</td><td><div class="td-name">Dewi Lestari, S.Pd.</div></td><td>Kelas 1A</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="bdg bdg-r">Alpha</span></td><td><div class="tact"><button class="btn btn-ghost btn-sm"><i class="fas fa-edit"></i></button><button class="btn btn-sm" style="background:var(--gold-l);color:var(--gold-d)"><i class="fas fa-bell"></i> Notif</button></div></td></tr>
+            </tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- ===== MANAJEMEN IZIN ===== -->
+      <div id="panel-izin" class="panel">
+        <div class="page-hdr">
+          <div><h2>Manajemen Izin</h2><p>Review dan approval pengajuan izin guru</p></div>
+          <div class="page-hdr-right">
+            <span class="bdg bdg-r" style="padding:7px 14px;font-size:12px">3 Menunggu</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hdr" style="padding-bottom:0;border-bottom:none">
+            <div class="tab-row" style="width:100%">
+              <button class="tab-btn on">Menunggu <span class="sb-badge" style="margin-left:6px;vertical-align:middle">3</span></button>
+              <button class="tab-btn">Disetujui</button>
+              <button class="tab-btn">Ditolak</button>
+              <button class="tab-btn">Semua</button>
+            </div>
+          </div>
+          <div style="padding:16px">
+            <div class="frow" style="padding:0 0 14px;border-bottom:1px solid var(--border);margin-bottom:16px;flex-wrap:wrap;gap:10px">
+              <input class="fsel" placeholder="Cari nama guru..." style="border-radius:8px;width:200px">
+              <select class="fsel"><option>Semua Jenis</option><option>Jam</option><option>Hari</option><option>Pagi</option><option>Sore</option><option>Sakit</option><option>Koordinator</option></select>
+              <input class="fsel" type="date" value="2025-06-03" style="border-radius:8px">
+            </div>
+            <div class="appr-grid">
+              <div class="appr-card">
+                <div class="appr-ico" style="background:#FCE4EC">🤒</div>
+                <div class="appr-body">
+                  <div class="appr-name">Nita Rahma, S.Pd.</div>
+                  <div class="appr-type">Izin Sakit / Sick Leave · Kelas 3A</div>
+                  <div class="appr-meta">
+                    <span><i class="fas fa-calendar"></i> 3 Jun 2025</span>
+                    <span><i class="fas fa-clock"></i> Full Day</span>
+                    <span><i class="fas fa-mobile-alt"></i> App · 06:15</span>
+                  </div>
+                  <div class="appr-note">Demam sejak semalam, sudah ke dokter. Surat dokter terlampir.</div>
+                  <div style="margin-top:8px"><span class="bdg bdg-b" style="cursor:pointer"><i class="fas fa-paperclip"></i> Lihat Surat Dokter</span></div>
+                  <div class="appr-acts">
+                    <button class="btn btn-green btn-sm"><i class="fas fa-check"></i> Setujui</button>
+                    <button class="btn btn-sm" style="background:var(--red-xl);color:var(--red)"><i class="fas fa-times"></i> Tolak</button>
+                    <button class="btn btn-ghost btn-sm"><i class="fas fa-comment"></i> Catatan</button>
+                  </div>
+                </div>
+              </div>
+              <div class="appr-card">
+                <div class="appr-ico" style="background:var(--green-l)">📋</div>
+                <div class="appr-body">
+                  <div class="appr-name">Rudi Hartono, S.Pd.</div>
+                  <div class="appr-type">Koordinator · Kelas 6C</div>
+                  <div class="appr-meta">
+                    <span><i class="fas fa-calendar"></i> 5 Jun 2025</span>
+                    <span><i class="fas fa-clock"></i> Full Day</span>
+                    <span><i class="fas fa-mobile-alt"></i> App · 20:30</span>
+                  </div>
+                  <div class="appr-note">Rapat koordinasi dengan Dinas Pendidikan Kota. Undangan terlampir.</div>
+                  <div style="margin-top:8px"><span class="bdg bdg-gray">Tidak ada lampiran</span></div>
+                  <div class="appr-acts">
+                    <button class="btn btn-green btn-sm"><i class="fas fa-check"></i> Setujui</button>
+                    <button class="btn btn-sm" style="background:var(--red-xl);color:var(--red)"><i class="fas fa-times"></i> Tolak</button>
+                    <button class="btn btn-ghost btn-sm"><i class="fas fa-comment"></i> Catatan</button>
+                  </div>
+                </div>
+              </div>
+              <div class="appr-card">
+                <div class="appr-ico" style="background:var(--gold-l)">🕐</div>
+                <div class="appr-body">
+                  <div class="appr-name">Sari Dewi, S.Pd.</div>
+                  <div class="appr-type">Izin Jam / Hour Leave · Kelas 4A</div>
+                  <div class="appr-meta">
+                    <span><i class="fas fa-calendar"></i> 4 Jun 2025</span>
+                    <span><i class="fas fa-clock"></i> 10:00 – 12:00</span>
+                    <span><i class="fas fa-mobile-alt"></i> App · 08:00</span>
+                  </div>
+                  <div class="appr-note">Antar anak ke dokter gigi. Akan kembali setelah istirahat siang.</div>
+                  <div class="appr-acts">
+                    <button class="btn btn-green btn-sm"><i class="fas fa-check"></i> Setujui</button>
+                    <button class="btn btn-sm" style="background:var(--red-xl);color:var(--red)"><i class="fas fa-times"></i> Tolak</button>
+                    <button class="btn btn-ghost btn-sm"><i class="fas fa-comment"></i> Catatan</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== PAYROLL ===== -->
+      <div id="panel-payroll" class="panel">
+        <div class="page-hdr">
+          <div><h2>Payroll / Gaji</h2><p>Input dan kelola gaji bulanan seluruh guru</p></div>
+          <div class="page-hdr-right">
+            <select class="fsel"><option>Juni 2025</option><option>Mei 2025</option><option>April 2025</option></select>
+            <button class="btn btn-ghost"><i class="fas fa-magic"></i> Generate Otomatis</button>
+            <button class="btn btn-ghost"><i class="fas fa-download"></i> Export Semua Slip</button>
+          </div>
+        </div>
+        <div class="g4">
+          <div class="sc sc-b"><div class="sc-ico">👩‍🏫</div><div><div class="sc-num">24</div><div class="sc-lbl">Total Guru</div></div></div>
+          <div class="sc sc-g"><div class="sc-ico">✅</div><div><div class="sc-num">18</div><div class="sc-lbl">Sudah Dibayar</div></div></div>
+          <div class="sc sc-y"><div class="sc-ico">⏳</div><div><div class="sc-num">6</div><div class="sc-lbl">Belum Dibayar</div></div></div>
+          <div class="sc sc-r"><div class="sc-ico">💰</div><div><div class="sc-num" style="font-size:18px">116,4 Jt</div><div class="sc-lbl">Total Pengeluaran</div></div></div>
+        </div>
+        <div class="card">
+          <div class="frow">
+            <input class="fsel" placeholder="🔍  Cari nama guru..." style="border-radius:8px;width:200px">
+            <select class="fsel"><option>Semua Status</option><option>Sudah Dibayar</option><option>Belum Dibayar</option></select>
+            <button class="btn btn-ghost btn-sm" style="margin-left:auto"><i class="fas fa-file-excel"></i> Export Excel</button>
+          </div>
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>Guru</th><th>Hadir</th><th>Gaji Pokok</th><th>T. Fungsional</th><th>T. Transport</th><th>Uang Makan</th><th>Pot. Absen</th><th>Pot. BPJS</th><th>Bersih</th><th>Status</th><th>Aksi</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><div class="td-name">Sari Dewi, S.Pd.</div><div class="td-sub">Kelas 4A</div></td>
+                <td><span class="bdg bdg-g">21/24</span></td>
+                <td><input class="pay-inp" value="3.500.000"></td>
+                <td><input class="pay-inp" value="750.000"></td>
+                <td><input class="pay-inp" value="500.000"></td>
+                <td><input class="pay-inp" value="300.000"></td>
+                <td><input class="pay-inp" value="150.000" style="color:var(--red)"></td>
+                <td><input class="pay-inp" value="50.000" style="color:var(--red)"></td>
+                <td class="pay-net">Rp 4.850.000</td>
+                <td><span class="bdg bdg-g">Dibayar</span></td>
+                <td><div class="tact"><button class="btn btn-ghost btn-sm"><i class="fas fa-file-pdf"></i> Slip</button><button class="btn btn-ghost btn-sm"><i class="fas fa-share-alt"></i></button></div></td>
+              </tr>
+              <tr>
+                <td><div class="td-name">Budi Santoso, S.Pd.</div><div class="td-sub">Kelas 5B</div></td>
+                <td><span class="bdg bdg-y">20/24</span></td>
+                <td><input class="pay-inp" value="3.500.000"></td>
+                <td><input class="pay-inp" value="750.000"></td>
+                <td><input class="pay-inp" value="500.000"></td>
+                <td><input class="pay-inp" value="300.000"></td>
+                <td><input class="pay-inp" value="200.000" style="color:var(--red)"></td>
+                <td><input class="pay-inp" value="50.000" style="color:var(--red)"></td>
+                <td class="pay-net">Rp 4.800.000</td>
+                <td><span class="bdg bdg-y">Pending</span></td>
+                <td><div class="tact"><button class="btn btn-red btn-sm"><i class="fas fa-paper-plane"></i> Bayar</button><button class="btn btn-ghost btn-sm"><i class="fas fa-file-pdf"></i></button></div></td>
+              </tr>
+              <tr>
+                <td><div class="td-name">Nita Rahma, S.Pd.</div><div class="td-sub">Kelas 3A</div></td>
+                <td><span class="bdg bdg-y">19/24</span></td>
+                <td><input class="pay-inp" value="3.500.000"></td>
+                <td><input class="pay-inp" value="600.000"></td>
+                <td><input class="pay-inp" value="500.000"></td>
+                <td><input class="pay-inp" value="300.000"></td>
+                <td><input class="pay-inp" value="250.000" style="color:var(--red)"></td>
+                <td><input class="pay-inp" value="50.000" style="color:var(--red)"></td>
+                <td class="pay-net">Rp 4.600.000</td>
+                <td><span class="bdg bdg-y">Pending</span></td>
+                <td><div class="tact"><button class="btn btn-red btn-sm"><i class="fas fa-paper-plane"></i> Bayar</button><button class="btn btn-ghost btn-sm"><i class="fas fa-file-pdf"></i></button></div></td>
+              </tr>
+            </tbody>
+          </table></div>
+          <div class="pagination">
+            <span class="pg-info">3 dari 24 guru · Total bersih: <strong>Rp 116.400.000</strong></span>
+            <button class="btn btn-red btn-sm"><i class="fas fa-check-double"></i> Tandai Semua Dibayar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== PENGATURAN ===== -->
+      <div id="panel-settings" class="panel">
+        <div class="page-hdr">
+          <div><h2>Pengaturan Sistem</h2><p>Konfigurasi aplikasi presensi SD Bintang Juara</p></div>
+          <div class="page-hdr-right"><button class="btn btn-red"><i class="fas fa-save"></i> Simpan Semua</button></div>
+        </div>
+
+        <div class="g2">
+          <div>
+            <div class="setsec">
+              <div class="setsec-hdr"><i class="fas fa-clock"></i><h3>Jam Kerja / Working Hours</h3></div>
+              <div class="setrow"><div><div class="set-lbl">Jam Masuk</div><div class="set-sub">Waktu resmi check-in</div></div><input class="set-inp" type="time" value="07:00"></div>
+              <div class="setrow"><div><div class="set-lbl">Jam Keluar</div><div class="set-sub">Waktu resmi check-out</div></div><input class="set-inp" type="time" value="14:30"></div>
+              <div class="setrow"><div><div class="set-lbl">Toleransi Terlambat</div><div class="set-sub">Menit sebelum dianggap terlambat</div></div><div style="display:flex;align-items:center;gap:8px"><input class="set-inp" type="number" value="15" style="width:80px"> <span style="font-size:12px;color:var(--t3)">menit</span></div></div>
+              <div class="setrow">
+                <div><div class="set-lbl">Hari Aktif Sekolah</div><div class="set-sub">Hari kerja guru</div></div>
+                <div style="display:flex;gap:5px">
+                  <span class="day-chip on">Sen</span><span class="day-chip on">Sel</span><span class="day-chip on">Rab</span>
+                  <span class="day-chip on">Kam</span><span class="day-chip on">Jum</span>
+                  <span class="day-chip off">Sab</span><span class="day-chip off">Min</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="setsec">
+              <div class="setsec-hdr"><i class="fas fa-bell"></i><h3>Push Notification</h3></div>
+              <div class="setrow"><div><div class="set-lbl">Pengingat Masuk Pagi</div><div class="set-sub">Setiap hari kerja ke semua guru</div></div><div style="display:flex;align-items:center;gap:10px"><input class="set-inp" type="time" value="06:30"><div class="toggle on"></div></div></div>
+              <div class="setrow"><div><div class="set-lbl">Peringatan Belum Absen</div><div class="set-sub">Hanya guru yang belum check-in</div></div><div style="display:flex;align-items:center;gap:10px"><input class="set-inp" type="time" value="07:15"><div class="toggle on"></div></div></div>
+              <div class="setrow"><div><div class="set-lbl">Pengingat Check-Out</div><div class="set-sub">Hanya guru yang belum check-out</div></div><div style="display:flex;align-items:center;gap:10px"><input class="set-inp" type="time" value="13:45"><div class="toggle on"></div></div></div>
+              <div class="setrow"><div><div class="set-lbl">Notifikasi Slip Gaji</div><div class="set-sub">Kirim saat payroll dibuat</div></div><div class="toggle on"></div></div>
+              <div class="setrow"><div><div class="set-lbl">Update Status Izin</div><div class="set-sub">Kirim saat izin disetujui/ditolak</div></div><div class="toggle on"></div></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="setsec">
+              <div class="setsec-hdr"><i class="fas fa-map-marker-alt"></i><h3>Geofencing — Lokasi Sekolah</h3></div>
+              <div class="setrow"><div><div class="set-lbl">Latitude</div><div class="set-sub">Koordinat pusat</div></div><input class="set-inp" value="-6.200000" style="width:150px"></div>
+              <div class="setrow"><div><div class="set-lbl">Longitude</div><div class="set-sub">Koordinat pusat</div></div><input class="set-inp" value="106.816666" style="width:150px"></div>
+              <div class="setrow">
+                <div><div class="set-lbl">Radius Geofence</div><div class="set-sub">Jarak check-in (50–300 m)</div></div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <input type="range" min="50" max="300" value="100" id="geoRange" style="width:110px;accent-color:var(--red)">
+                  <span id="geoVal" style="font-size:13px;font-weight:600;color:var(--red);min-width:65px">100 meter</span>
+                </div>
+              </div>
+              <div class="setrow"><div><div class="set-lbl">Preview Area</div></div><div class="map-ph"><i class="fas fa-map-marked-alt"></i><p>100m radius preview</p></div></div>
+            </div>
+
+            <div class="setsec">
+              <div class="setsec-hdr"><i class="fas fa-users-cog"></i><h3>Akun & Role Admin</h3></div>
+              <div class="setrow"><div><div class="set-lbl">Admin Utama</div><div class="set-sub">admin@bintangjuara.sch.id · Full access</div></div><span class="bdg bdg-r">Admin</span></div>
+              <div class="setrow"><div><div class="set-lbl">Bendahara</div><div class="set-sub">bendahara@bintangjuara.sch.id · Payroll only</div></div><span class="bdg bdg-b">Bendahara</span></div>
+              <div class="setrow"><div><div class="set-lbl">Kepala Sekolah</div><div class="set-sub">kepsek@bintangjuara.sch.id · View only</div></div><span class="bdg bdg-gray">Viewer</span></div>
+              <div class="setrow"><div></div><button class="btn btn-outline btn-sm"><i class="fas fa-plus"></i> Tambah Admin</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- MODAL TAMBAH GURU -->
+<div class="modal-overlay" id="modal-guru">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h3><i class="fas fa-plus" style="color:var(--red);margin-right:8px"></i>Tambah Guru Baru</h3>
+      <button class="modal-close" onclick="closeModal('modal-guru')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="mfr mfg">
+        <div><label class="mfl">Nama Lengkap</label><input class="mfi" placeholder="Cth: Sari Dewi, S.Pd."></div>
+        <div><label class="mfl">NIP</label><input class="mfi" placeholder="18 digit NIP"></div>
+      </div>
+      <div class="mfr mfg">
+        <div><label class="mfl">Email</label><input class="mfi" type="email" placeholder="guru@bintangjuara.sch.id"></div>
+        <div><label class="mfl">No. HP</label><input class="mfi" placeholder="0812-xxxx-xxxx"></div>
+      </div>
+      <div class="mfr mfg">
+        <div><label class="mfl">Kelas / Jabatan</label>
+          <select class="mfi"><option>-- Pilih --</option><option>Guru Kelas 1A</option><option>Guru Kelas 1B</option><option>Guru Kelas 2A</option><option>Guru Kelas 3A</option><option>Guru Kelas 4A</option><option>Guru Kelas 5A</option><option>Guru Kelas 6A</option><option>Guru Mata Pelajaran</option><option>Staf</option></select>
+        </div>
+        <div><label class="mfl">Tanggal Bergabung</label><input class="mfi" type="date"></div>
+      </div>
+      <div class="mfr mfg">
+        <div><label class="mfl">Gaji Pokok (Rp)</label><input class="mfi" placeholder="3.500.000"></div>
+        <div><label class="mfl">Password Awal</label><input class="mfi" type="password" placeholder="min. 8 karakter"></div>
+      </div>
+      <div class="mfg" style="background:var(--gold-l);border-radius:9px;padding:10px 12px;border:1px solid var(--gold)">
+        <p style="font-size:12px;color:var(--gold-d)"><i class="fas fa-info-circle"></i> Guru akan menerima email aktivasi akun secara otomatis setelah data disimpan.</p>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-guru')">Batal</button>
+      <button class="btn btn-red"><i class="fas fa-plus"></i> Simpan & Kirim Aktivasi</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const titles = {
+  dashboard:'Dashboard <span>Overview</span>',
+  guru:'Data Guru <span>Manajemen Guru</span>',
+  absensi:'Absensi Harian <span>Rekap Presensi</span>',
+  izin:'Manajemen Izin <span>Approval</span>',
+  payroll:'Payroll / Gaji <span>Penggajian</span>',
+  settings:'Pengaturan <span>Konfigurasi Sistem</span>'
+};
+
+document.querySelectorAll('.sbi').forEach(el=>{
+  el.addEventListener('click',()=>{
+    const id = el.dataset.panel;
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+    document.querySelectorAll('.sbi').forEach(s=>s.classList.remove('on'));
+    document.getElementById('panel-'+id).classList.add('on');
+    el.classList.add('on');
+    document.getElementById('tb-title').innerHTML = titles[id]||id;
+  });
+});
+
+function goPanel(id){
+  document.querySelectorAll('.sbi').forEach(el=>{
+    if(el.dataset.panel===id){el.click();}
+  });
+}
+
+function showApp(){
+  document.getElementById('login-page').style.display='none';
+  document.getElementById('app').style.display='flex';
+}
+
+function logout(){
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-page').style.display='flex';
+}
+
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.rtab').forEach(t=>{
+  t.addEventListener('click',function(){
+    document.querySelectorAll('.rtab').forEach(b=>b.classList.remove('on'));
+    this.classList.add('on');
+  });
+});
+
+document.querySelectorAll('.toggle').forEach(t=>{
+  t.addEventListener('click',()=>t.classList.toggle('on'));
+});
+
+document.querySelectorAll('.day-chip').forEach(c=>{
+  c.addEventListener('click',()=>{
+    c.classList.toggle('on');
+    c.classList.toggle('off');
+  });
+});
+
+document.querySelectorAll('.tab-btn').forEach(t=>{
+  t.addEventListener('click',function(){
+    this.closest('.tab-row').querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
+    this.classList.add('on');
+  });
+});
+
+const gr = document.getElementById('geoRange');
+const gv = document.getElementById('geoVal');
+if(gr) gr.addEventListener('input',()=>{ gv.textContent=gr.value+' meter'; });
+
+document.querySelectorAll('.modal-overlay').forEach(o=>{
+  o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open'); });
+});
+</script>
+</body>
+</html>

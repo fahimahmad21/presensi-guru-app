@@ -7,7 +7,8 @@ import {
   StyleSheet,
   Animated,
 } from 'react-native';
-import Colors from '../constants/Colors';
+import { ColorPalette } from '../constants/Colors';
+import { useTheme } from '../context/ThemeContext';
 import { FontSize, Radius, Shadow, Spacing } from '../constants/Theme';
 
 export type AlertType = 'success' | 'error' | 'warning' | 'info';
@@ -27,16 +28,21 @@ interface AlertModalProps {
   onClose: () => void;
 }
 
-const CONFIG: Record<AlertType, { icon: string; color: string; bg: string }> = {
-  success: { icon: '✅', color: Colors.success, bg: Colors.successLight },
-  error:   { icon: '❌', color: Colors.error,   bg: Colors.errorLight },
-  warning: { icon: '⚠️', color: Colors.accentDark, bg: Colors.accentLight },
-  info:    { icon: 'ℹ️', color: Colors.primary, bg: Colors.primaryXLight },
-};
+function getConfig(colors: ColorPalette): Record<AlertType, { icon: string; color: string; bg: string }> {
+  return {
+    success: { icon: '✅', color: colors.success, bg: colors.successLight },
+    error:   { icon: '❌', color: colors.error,   bg: colors.errorLight },
+    warning: { icon: '⚠️', color: colors.accentDark, bg: colors.accentLight },
+    info:    { icon: 'ℹ️', color: colors.primary, bg: colors.primaryXLight },
+  };
+}
 
 export default function AlertModal({
   visible, type, title, message, buttons, onClose,
 }: AlertModalProps) {
+  const { colors } = useTheme();
+  const styles = React.useMemo(() => getStyles(colors), [colors]);
+  const CONFIG = React.useMemo(() => getConfig(colors), [colors]);
   const cfg = CONFIG[type];
   const btns = buttons ?? [{ text: 'Oke', onPress: onClose, variant: 'primary' as const }];
 
@@ -63,7 +69,7 @@ export default function AlertModal({
               >
                 <Text style={[
                   styles.btnText,
-                  btn.variant === 'secondary' ? { color: Colors.textSecondary } : { color: '#fff' },
+                  btn.variant === 'secondary' ? { color: colors.textSecondary } : { color: '#fff' },
                 ]}>
                   {btn.text}
                 </Text>
@@ -76,7 +82,7 @@ export default function AlertModal({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ColorPalette) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -85,7 +91,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderRadius: Radius.xl,
     padding: Spacing.lg,
     width: '100%',
@@ -109,7 +115,7 @@ const styles = StyleSheet.create({
   message: {
     fontSize: FontSize.sm,
     fontFamily: 'Poppins_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: Spacing.lg,
@@ -125,9 +131,9 @@ const styles = StyleSheet.create({
   btnHalf: { flex: 1 },
   btnPrimary: { },
   btnSecondary: {
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   btnText: {
     fontSize: FontSize.md,

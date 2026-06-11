@@ -4,7 +4,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
-import Colors from '../constants/Colors';
+import { ColorPalette } from '../constants/Colors';
+import { useTheme } from '../context/ThemeContext';
 import { FontSize } from '../constants/Theme';
 import { buildNotifications } from '../services/NotificationService';
 import NotificationModal from './NotificationModal';
@@ -17,6 +18,8 @@ interface Props {
 }
 
 export default function HeaderActions({ variant = 'compact' }: Props) {
+  const { colors } = useTheme();
+  const styles = React.useMemo(() => getStyles(colors), [colors]);
   const { user, logout } = useAuth();
   const [showNotif,   setShowNotif]   = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -92,7 +95,7 @@ export default function HeaderActions({ variant = 'compact' }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ColorPalette) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems:    'center',
@@ -112,9 +115,9 @@ const styles = StyleSheet.create({
     minWidth:        16,
     height:          16,
     borderRadius:    8,
-    backgroundColor: Colors.accent,
+    backgroundColor: colors.accent,
     borderWidth:     1.5,
-    borderColor:     Colors.primary,
+    borderColor:     colors.primary,
     alignItems:      'center',
     justifyContent:  'center',
     paddingHorizontal: 2,
@@ -127,7 +130,7 @@ const styles = StyleSheet.create({
   },
 
   avatar: {
-    backgroundColor: Colors.accent,
+    backgroundColor: colors.accent,
     alignItems:      'center',
     justifyContent:  'center',
     borderWidth:     2,

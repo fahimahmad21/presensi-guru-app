@@ -1,10 +1,11 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { MainTabParamList } from "../types";
-import Colors from "../constants/Colors";
+import { ColorPalette } from "../constants/Colors";
+import { useTheme } from "../context/ThemeContext";
 import AbsensiScreen from "../screens/main/AbsensiScreen";
 import IzinScreen from "../screens/main/IzinScreen";
 import LaporanScreen from "../screens/main/LaporanScreen";
@@ -12,7 +13,6 @@ import PayrollScreen from "../screens/main/PayrollScreen";
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-const GRAY = "#AAAAAA";
 const TABS: {
   name: keyof MainTabParamList;
   label: string;
@@ -48,31 +48,29 @@ const TABS: {
 function TabIcon({
   iconOn,
   iconOff,
-  label,
   focused,
 }: {
   iconOn: keyof typeof Ionicons.glyphMap;
   iconOff: keyof typeof Ionicons.glyphMap;
-  label: string;
   focused: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = React.useMemo(() => getStyles(colors), [colors]);
   return (
     <View style={styles.tabItem}>
       <Ionicons
         name={focused ? iconOn : iconOff}
         size={26}
-        color={focused ? Colors.primary : GRAY}
+        color={focused ? colors.primary : colors.textTertiary}
       />
-      <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>
-        {label}
-      </Text>
-      {focused && <View style={styles.tabDot} />}
     </View>
   );
 }
 
 export default function MainNavigator() {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const styles = React.useMemo(() => getStyles(colors), [colors]);
 
   return (
     <Tab.Navigator
@@ -106,7 +104,6 @@ export default function MainNavigator() {
               <TabIcon
                 iconOn={tab.iconOn}
                 iconOff={tab.iconOff}
-                label={tab.label}
                 focused={focused}
               />
             ),
@@ -117,13 +114,13 @@ export default function MainNavigator() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ColorPalette) => StyleSheet.create({
   tabBar: {
     height: 63,
     paddingBottom: 12,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.white,
     borderTopWidth: 1,
-    borderTopColor: "#E8E8E8",
+    borderTopColor: colors.border,
     elevation: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
@@ -134,25 +131,7 @@ const styles = StyleSheet.create({
   tabItem: {
     alignItems: "center",
     justifyContent: "center",
-    gap: 3,
-    paddingVertical: 8,
+    flex: 1,
     minWidth: 64,
-  },
-  tabLabel: {
-    fontSize: 12,
-    fontFamily: "Poppins_500Medium",
-    color: GRAY,
-  },
-  tabLabelActive: {
-    fontSize: 12,
-    fontFamily: "Poppins_700Bold",
-    color: Colors.primary,
-  },
-  tabDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: Colors.primary,
-    marginTop: 1,
   },
 });

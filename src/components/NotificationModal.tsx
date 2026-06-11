@@ -1,18 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Modal, View, Text, StyleSheet,
   TouchableOpacity, ScrollView, Pressable, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Colors from '../constants/Colors';
+import { ColorPalette } from '../constants/Colors';
+import { useTheme } from '../context/ThemeContext';
 import { FontSize, Shadow } from '../constants/Theme';
 import { buildNotifications, getReadIds, saveReadIds, NotifItem } from '../services/NotificationService';
 
-const TIPE_CFG: Record<NotifItem['tipe'], { color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  absensi: { color: Colors.primary,    bg: Colors.primaryXLight, icon: 'time-outline'          },
-  izin:    { color: Colors.accentDark, bg: Colors.accentLight,   icon: 'document-text-outline' },
-  sistem:  { color: '#6A1B9A',         bg: '#F3E5F5',            icon: 'settings-outline'      },
-};
+function getTipeCfg(colors: ColorPalette, isDark: boolean): Record<NotifItem['tipe'], { color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> {
+  return {
+    absensi: { color: colors.primary,    bg: colors.primaryXLight, icon: 'time-outline'          },
+    izin:    { color: colors.accentDark, bg: colors.accentLight,   icon: 'document-text-outline' },
+    sistem:  { color: isDark ? '#CE93D8' : '#6A1B9A', bg: isDark ? '#2A1B3A' : '#F3E5F5', icon: 'settings-outline' },
+  };
+}
 
 interface Props {
   visible: boolean;
@@ -20,6 +23,9 @@ interface Props {
 }
 
 export default function NotificationModal({ visible, onClose }: Props) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
+  const TIPE_CFG = useMemo(() => getTipeCfg(colors, isDark), [colors, isDark]);
   const [notifs,  setNotifs]  = useState<NotifItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
@@ -71,7 +77,7 @@ export default function NotificationModal({ visible, onClose }: Props) {
                 </TouchableOpacity>
               )}
               <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
           </View>
@@ -80,17 +86,17 @@ export default function NotificationModal({ visible, onClose }: Props) {
           <ScrollView showsVerticalScrollIndicator={false} style={styles.list}>
             {loading ? (
               <View style={styles.centerBox}>
-                <ActivityIndicator color={Colors.primary} size="large" />
+                <ActivityIndicator color={colors.primary} size="large" />
                 <Text style={styles.centerText}>Memuat notifikasi...</Text>
               </View>
             ) : error ? (
               <View style={styles.centerBox}>
-                <Ionicons name="cloud-offline-outline" size={48} color={Colors.textHint} />
+                <Ionicons name="cloud-offline-outline" size={48} color={colors.textHint} />
                 <Text style={styles.centerText}>{error}</Text>
               </View>
             ) : notifs.length === 0 ? (
               <View style={styles.centerBox}>
-                <Ionicons name="notifications-off-outline" size={48} color={Colors.textHint} />
+                <Ionicons name="notifications-off-outline" size={48} color={colors.textHint} />
                 <Text style={styles.centerText}>Tidak ada notifikasi</Text>
               </View>
             ) : (
@@ -126,47 +132,47 @@ export default function NotificationModal({ visible, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ColorPalette) => StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
   sheet: {
-    backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    backgroundColor: colors.white, borderTopLeftRadius: 28, borderTopRightRadius: 28,
     maxHeight: '85%', ...Shadow.md,
   },
   handle: {
     width: 40, height: 4, borderRadius: 2,
-    backgroundColor: Colors.border, alignSelf: 'center',
+    backgroundColor: colors.border, alignSelf: 'center',
     marginTop: 12, marginBottom: 4,
   },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
     paddingHorizontal: 20, paddingVertical: 16,
-    borderBottomWidth: 1, borderBottomColor: Colors.background,
+    borderBottomWidth: 1, borderBottomColor: colors.background,
   },
-  headerTitle:   { fontSize: FontSize.lg, fontFamily: 'Poppins_700Bold', color: Colors.textPrimary },
-  headerSub:     { fontSize: FontSize.xs, fontFamily: 'Poppins_400Regular', color: Colors.primary, marginTop: 2 },
+  headerTitle:   { fontSize: FontSize.lg, fontFamily: 'Poppins_700Bold', color: colors.textPrimary },
+  headerSub:     { fontSize: FontSize.xs, fontFamily: 'Poppins_400Regular', color: colors.primary, marginTop: 2 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  tandaiBtn: { backgroundColor: Colors.primaryXLight, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 },
-  tandaiBtnText: { fontSize: FontSize.xs - 1, fontFamily: 'Poppins_600SemiBold', color: Colors.primary },
-  closeBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
+  tandaiBtn: { backgroundColor: colors.primaryXLight, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 },
+  tandaiBtnText: { fontSize: FontSize.xs - 1, fontFamily: 'Poppins_600SemiBold', color: colors.primary },
+  closeBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
 
   list: { paddingHorizontal: 16 },
   centerBox:  { alignItems: 'center', paddingVertical: 48, gap: 12 },
-  centerText: { fontSize: FontSize.md, fontFamily: 'Poppins_500Medium', color: Colors.textHint },
+  centerText: { fontSize: FontSize.md, fontFamily: 'Poppins_500Medium', color: colors.textHint },
 
   item: {
     flexDirection: 'row', gap: 14, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: Colors.background,
+    borderBottomWidth: 1, borderBottomColor: colors.background,
   },
   itemUnread: {
-    backgroundColor: Colors.primaryXLight,
+    backgroundColor: colors.primaryXLight,
     marginHorizontal: -16, paddingHorizontal: 16,
     borderRadius: 12, borderBottomColor: 'transparent', marginBottom: 2,
   },
   itemIcon:  { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   itemBody:  { flex: 1 },
   itemTop:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 },
-  itemJudul: { flex: 1, fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: Colors.textPrimary },
-  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary, marginLeft: 6, flexShrink: 0 },
-  itemPesan: { fontSize: FontSize.xs, fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, lineHeight: 18, marginBottom: 4 },
-  itemWaktu: { fontSize: FontSize.xs - 2, fontFamily: 'Poppins_400Regular', color: Colors.textHint },
+  itemJudul: { flex: 1, fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary },
+  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary, marginLeft: 6, flexShrink: 0 },
+  itemPesan: { fontSize: FontSize.xs, fontFamily: 'Poppins_400Regular', color: colors.textSecondary, lineHeight: 18, marginBottom: 4 },
+  itemWaktu: { fontSize: FontSize.xs - 2, fontFamily: 'Poppins_400Regular', color: colors.textHint },
 });

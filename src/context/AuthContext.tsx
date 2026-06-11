@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { saveAuthTokens, clearAuthTokens, hasAuthTokens } from '../services/apiClient';
 import { login as apiLogin, getProfile, updateAvatar as apiUpdateAvatar } from '../services/authService';
+import { saveAccount, SavedAccount } from '../services/accountService';
 
 export interface UserProfile {
   country:  number;
@@ -20,6 +21,7 @@ interface AuthContextType {
   isLoading:    boolean;
   user:         UserProfile | null;
   login:        (username: string, password: string) => Promise<void>;
+  loginWithSavedAccount: (account: SavedAccount) => Promise<void>;
   logout:       () => Promise<void>;
   updateFoto:   (base64: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -30,6 +32,7 @@ const AuthContext = createContext<AuthContextType>({
   isLoading:      true,
   user:           null,
   login:          async () => {},
+  loginWithSavedAccount: async () => {},
   logout:         async () => {},
   updateFoto:     async () => {},
   refreshProfile: async () => {},
@@ -66,14 +69,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await apiLogin(username, password);
     if (!res.data.status) throw new Error(res.data.message);
 
-    const { 'Auth-Api': api, 'Auth-Key': key, 'Auth-Token': token } = res.data.data;
+    const { 'Auth-Api': api, 'Auth-Key': key, 'Auth-Token': token, name } = res.data.data;
     await saveAuthTokens(api, key, token);
 
     // Ambil data profil lengkap termasuk foto
     const profile = await getProfile();
     if (profile.data.status) setUser(profile.data.data);
 
+    try {
+      await saveAccount({ username, name, authApi: api, authKey: key, authToken: token });
+    } catch (e) {
+      console.warn('Gagal menyimpan akun:', e);
+    }
+
     setIsLoggedIn(true);
+  };
+
+  // Login cepat memakai token akun tersimpan (tanpa password)
+  const loginWithSavedAccount = async (account: SavedAccount) => {
+    await saveAuthTokens(account.authApi, account.authKey, account.authToken);
+    try {
+      const profile = await getProfile();
+      if (!profile.data.status) throw new Error('Sesi berakhir');
+      setUser(profile.data.data);
+      setIsLoggedIn(true);
+    } catch (e) {
+      await clearAuthTokens();
+      throw e;
+    }
   };
 
   const logout = async () => {
@@ -93,7 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, isLoading, user, login, logout, updateFoto, refreshProfile }}>
+    <AuthContext.Provider value={{ isLoggedIn, isLoading, user, login, loginWithSavedAccount, logout, updateFoto, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

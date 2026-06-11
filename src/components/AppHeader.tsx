@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View, StyleProp, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Colors from '../constants/Colors';
+import { useTheme } from '../context/ThemeContext';
 import { FontSize } from '../constants/Theme';
 
 type GradientPoint = { x: number; y: number };
@@ -25,7 +25,7 @@ export default function AppHeader({
   subtitle,
   right,
   children,
-  colors = [Colors.primaryDark, Colors.primary],
+  colors,
   start,
   end,
   paddingBottom = 8,
@@ -33,10 +33,12 @@ export default function AppHeader({
   contentStyle,
 }: AppHeaderProps) {
   const insets = useSafeAreaInsets();
+  const { colors: themeColors } = useTheme();
+  const gradientColors = colors ?? [themeColors.primaryDark, themeColors.primary];
 
   return (
     <LinearGradient
-      colors={colors}
+      colors={gradientColors}
       start={start}
       end={end}
       style={[

@@ -10,7 +10,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import { PermitType, PermitHistoryItem } from '../../types';
 import { getPermitTypes, insertPermit, getPermitHistory } from '../../services/permitService';
-import Colors from '../../constants/Colors';
+import { ColorPalette } from '../../constants/Colors';
+import { useTheme } from '../../context/ThemeContext';
 import { FontSize, Radius, Shadow } from '../../constants/Theme';
 import AppHeader from '../../components/AppHeader';
 import HeaderActions from '../../components/HeaderActions';
@@ -29,11 +30,13 @@ function getPermitIcon(permit: PermitType): IonName {
 }
 
 // Status history dari API: "Waiting" | "Approved" | "Rejected"
-const ACTION_CFG: Record<string, { icon: IonName; color: string; bg: string; label: string }> = {
-  Waiting:  { icon: 'time',             color: Colors.statusTerlambat, bg: Colors.statusTerlambatBg, label: 'Menunggu'  },
-  Approved: { icon: 'checkmark-circle', color: Colors.statusHadir,     bg: Colors.statusHadirBg,     label: 'Disetujui' },
-  Rejected: { icon: 'close-circle',     color: Colors.statusAlpha,     bg: Colors.statusAlphaBg,     label: 'Ditolak'   },
-};
+function getActionCfg(colors: ColorPalette): Record<string, { icon: IonName; color: string; bg: string; label: string }> {
+  return {
+    Waiting:  { icon: 'time',             color: colors.statusTerlambat, bg: colors.statusTerlambatBg, label: 'Menunggu'  },
+    Approved: { icon: 'checkmark-circle', color: colors.statusHadir,     bg: colors.statusHadirBg,     label: 'Disetujui' },
+    Rejected: { icon: 'close-circle',     color: colors.statusAlpha,     bg: colors.statusAlphaBg,     label: 'Ditolak'   },
+  };
+}
 
 // Format "2026-05-11 14:30" → { tgl, bln, jam }
 function parseHistDate(dateStr: string) {
@@ -68,6 +71,10 @@ function addHours(d: Date, h: number) {
 }
 
 export default function IzinScreen() {
+  const { colors } = useTheme();
+  const styles = React.useMemo(() => getStyles(colors), [colors]);
+  const ACTION_CFG = React.useMemo(() => getActionCfg(colors), [colors]);
+
   const [permitTypes,     setPermitTypes]     = useState<PermitType[]>([]);
   const [selectedPermit,  setSelectedPermit]  = useState<PermitType | null>(null);
   const [history,         setHistory]         = useState<PermitHistoryItem[]>([]);
@@ -109,8 +116,8 @@ export default function IzinScreen() {
   useEffect(() => { loadData(); }, []);
 
   // Derived dari selectedPermit
-  const isHourMode = selectedPermit?.mode === 'hour';
-  const isDayMode  = selectedPermit?.mode === 'day' || selectedPermit?.mode === 'other';
+  const isHourMode = selectedPermit?.mode === 'hour' || selectedPermit?.mode === 'other';
+  const isDayMode  = selectedPermit?.mode === 'day';
   const needsFile  = !!selectedPermit?.attachment;
 
   const onDateChange  = (_: DateTimePickerEvent, d?: Date) => {
@@ -199,7 +206,7 @@ export default function IzinScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {loadingInit ? (
           <View style={styles.loadingBox}>
-            <ActivityIndicator color={Colors.primary} />
+            <ActivityIndicator color={colors.primary} />
           </View>
         ) : (
           <View style={styles.body}>
@@ -216,7 +223,7 @@ export default function IzinScreen() {
                     onPress={() => handlePilihPermit(p)}
                     activeOpacity={0.75}
                   >
-                    <Ionicons name={getPermitIcon(p)} size={24} color={aktif ? Colors.primary : '#AAAAAA'} />
+                    <Ionicons name={getPermitIcon(p)} size={24} color={aktif ? colors.primary : '#AAAAAA'} />
                     <Text style={[styles.typeName, aktif && styles.typeNameSel]}>{p.name}</Text>
                   </TouchableOpacity>
                 );
@@ -263,7 +270,7 @@ export default function IzinScreen() {
 
             {isDayMode && (
               <View style={styles.fullDayBadge}>
-                <Ionicons name="calendar-outline" size={16} color={Colors.statusIzin} />
+                <Ionicons name="calendar-outline" size={16} color={colors.statusIzin} />
                 <Text style={styles.fullDayText}>Izin Seharian Penuh</Text>
               </View>
             )}
@@ -273,7 +280,7 @@ export default function IzinScreen() {
             <TextInput
               style={styles.textarea}
               placeholder="Tulis keterangan izin Anda di sini..."
-              placeholderTextColor={Colors.textHint}
+              placeholderTextColor={colors.textHint}
               value={keterangan}
               onChangeText={setKeterangan}
               multiline numberOfLines={3}
@@ -289,15 +296,15 @@ export default function IzinScreen() {
               }
             </Text>
             <TouchableOpacity style={[styles.uploadBox, lampiranNama && styles.uploadBoxFilled]} onPress={handleUpload} activeOpacity={0.8}>
-              <Ionicons name={lampiranNama ? 'document-attach' : 'attach-outline'} size={28} color={lampiranNama ? Colors.primary : '#AAAAAA'} />
-              <Text style={[styles.uploadText, lampiranNama && { color: Colors.primary }]}>
+              <Ionicons name={lampiranNama ? 'document-attach' : 'attach-outline'} size={28} color={lampiranNama ? colors.primary : '#AAAAAA'} />
+              <Text style={[styles.uploadText, lampiranNama && { color: colors.primary }]}>
                 {lampiranNama ?? 'Upload dokumen pendukung'}
               </Text>
               <Text style={styles.uploadSub}>{lampiranNama ? 'Ketuk untuk mengganti' : 'Surat dokter, foto, PDF'}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={submitting} activeOpacity={0.85}>
-              <LinearGradient colors={[Colors.primary, Colors.primaryDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.submitGrad}>
+              <LinearGradient colors={[colors.primary, colors.primaryDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.submitGrad}>
                 {submitting
                   ? <ActivityIndicator color="#fff" />
                   : <Text style={styles.submitText}>Ajukan Izin</Text>
@@ -314,7 +321,7 @@ export default function IzinScreen() {
         <View style={styles.histList}>
           {history.length === 0 ? (
             <View style={[styles.emptyBox, Shadow.sm]}>
-              <Ionicons name="document-outline" size={36} color={Colors.textHint} />
+              <Ionicons name="document-outline" size={36} color={colors.textHint} />
               <Text style={styles.emptyText}>Belum ada riwayat izin</Text>
             </View>
           ) : (
@@ -345,7 +352,7 @@ export default function IzinScreen() {
                       ) : null}
                       {item.attachment && (
                         <View style={styles.chipLamp}>
-                          <Ionicons name="document-attach-outline" size={10} color={Colors.primary} />
+                          <Ionicons name="document-attach-outline" size={10} color={colors.primary} />
                           <Text style={styles.chipLampText}>Lampiran</Text>
                         </View>
                       )}
@@ -371,60 +378,60 @@ export default function IzinScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.background },
+const getStyles = (colors: ColorPalette) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
 
   loadingBox: { flex: 1, padding: 40, alignItems: 'center' },
   body: { padding: 14 },
 
-  label: { fontSize: 11, fontFamily: 'Poppins_600SemiBold', color: Colors.textSecondary, letterSpacing: 0.5, marginBottom: 8, marginTop: 4 },
-  labelSub: { fontSize: 11, fontFamily: 'Poppins_500Medium', color: Colors.textTertiary, marginBottom: 6 },
-  labelWajib:    { color: Colors.error,       fontSize: 10 },
-  labelOpsional: { color: Colors.textTertiary, fontSize: 10, fontFamily: 'Poppins_400Regular' },
+  label: { fontSize: 11, fontFamily: 'Poppins_600SemiBold', color: colors.textSecondary, letterSpacing: 0.5, marginBottom: 8, marginTop: 4 },
+  labelSub: { fontSize: 11, fontFamily: 'Poppins_500Medium', color: colors.textTertiary, marginBottom: 6 },
+  labelWajib:    { color: colors.error,       fontSize: 10 },
+  labelOpsional: { color: colors.textTertiary, fontSize: 10, fontFamily: 'Poppins_400Regular' },
 
   typeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginBottom: 16 },
-  typeChip: { width: '30.5%', borderWidth: 1.5, borderColor: Colors.border, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 6, alignItems: 'center', gap: 5 },
-  typeChipSel: { borderColor: Colors.primary, backgroundColor: Colors.primaryXLight },
-  typeName: { fontSize: FontSize.xs - 1, fontFamily: 'Poppins_600SemiBold', color: Colors.textTertiary, textAlign: 'center' },
-  typeNameSel: { color: Colors.primary },
+  typeChip: { width: '30.5%', borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 6, alignItems: 'center', gap: 5 },
+  typeChipSel: { borderColor: colors.primary, backgroundColor: colors.primaryXLight },
+  typeName: { fontSize: FontSize.xs - 1, fontFamily: 'Poppins_600SemiBold', color: colors.textTertiary, textAlign: 'center' },
+  typeNameSel: { color: colors.primary },
 
   fRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   fHalf: { flex: 1 },
-  inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.background, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border, paddingHorizontal: 12, height: 48 },
+  inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, borderRadius: Radius.md, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 12, height: 48 },
   inputIcon: { marginRight: 6 },
-  inputText: { fontSize: FontSize.xs, fontFamily: 'Poppins_400Regular', color: Colors.textPrimary },
+  inputText: { fontSize: FontSize.xs, fontFamily: 'Poppins_400Regular', color: colors.textPrimary },
 
-  fullDayBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.statusIzinBg, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 14 },
-  fullDayText: { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: Colors.statusIzin },
+  fullDayBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.statusIzinBg, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 14 },
+  fullDayText: { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: colors.statusIzin },
 
-  textarea: { backgroundColor: Colors.background, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border, padding: 14, fontSize: FontSize.sm, fontFamily: 'Poppins_400Regular', color: Colors.textPrimary, height: 80, marginBottom: 14 },
+  textarea: { backgroundColor: colors.background, borderRadius: Radius.md, borderWidth: 1.5, borderColor: colors.border, padding: 14, fontSize: FontSize.sm, fontFamily: 'Poppins_400Regular', color: colors.textPrimary, height: 80, marginBottom: 14 },
 
-  uploadBox: { borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.border, borderRadius: Radius.md, padding: 18, alignItems: 'center', marginBottom: 16, gap: 5 },
-  uploadBoxFilled: { borderColor: Colors.primary, borderStyle: 'solid', backgroundColor: Colors.primaryXLight },
-  uploadText: { fontSize: FontSize.sm, color: Colors.textSecondary, fontFamily: 'Poppins_500Medium' },
-  uploadSub: { fontSize: FontSize.xs - 1, color: Colors.textHint, fontFamily: 'Poppins_400Regular' },
+  uploadBox: { borderWidth: 2, borderStyle: 'dashed', borderColor: colors.border, borderRadius: Radius.md, padding: 18, alignItems: 'center', marginBottom: 16, gap: 5 },
+  uploadBoxFilled: { borderColor: colors.primary, borderStyle: 'solid', backgroundColor: colors.primaryXLight },
+  uploadText: { fontSize: FontSize.sm, color: colors.textSecondary, fontFamily: 'Poppins_500Medium' },
+  uploadSub: { fontSize: FontSize.xs - 1, color: colors.textHint, fontFamily: 'Poppins_400Regular' },
 
   submitBtn: { borderRadius: Radius.md, overflow: 'hidden', marginBottom: 4 },
   submitGrad: { paddingVertical: 16, alignItems: 'center' },
   submitText: { color: '#fff', fontSize: FontSize.md, fontFamily: 'Poppins_600SemiBold' },
 
   histHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingBottom: 10, paddingTop: 6 },
-  sectionTitle: { fontSize: FontSize.md, fontFamily: 'Poppins_600SemiBold', color: Colors.textPrimary },
+  sectionTitle: { fontSize: FontSize.md, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary },
 
-  emptyBox: { backgroundColor: '#fff', borderRadius: 14, marginHorizontal: 14, padding: 28, alignItems: 'center', gap: 10 },
-  emptyText: { fontSize: FontSize.sm, color: Colors.textTertiary, fontFamily: 'Poppins_400Regular' },
+  emptyBox: { backgroundColor: colors.white, borderRadius: 14, marginHorizontal: 14, padding: 28, alignItems: 'center', gap: 10 },
+  emptyText: { fontSize: FontSize.sm, color: colors.textTertiary, fontFamily: 'Poppins_400Regular' },
 
   histList: { paddingHorizontal: 14 },
-  izinItem: { backgroundColor: '#fff', borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
+  izinItem: { backgroundColor: colors.white, borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
   izinIco: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   izinDet: { flex: 1 },
-  izinType: { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: Colors.textPrimary },
-  izinDate: { fontSize: FontSize.xs - 1, color: Colors.textTertiary, fontFamily: 'Poppins_400Regular', marginTop: 3 },
+  izinType: { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary },
+  izinDate: { fontSize: FontSize.xs - 1, color: colors.textTertiary, fontFamily: 'Poppins_400Regular', marginTop: 3 },
   chipRow: { flexDirection: 'row', gap: 5, marginTop: 5, flexWrap: 'wrap' },
   chip: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20 },
   chipText: { fontSize: FontSize.xs - 2, fontFamily: 'Poppins_500Medium' },
-  chipDur: { backgroundColor: Colors.background, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20 },
-  chipDurText: { fontSize: FontSize.xs - 2, color: Colors.textTertiary, fontFamily: 'Poppins_400Regular' },
-  chipLamp: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.primaryXLight, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 20 },
-  chipLampText: { fontSize: FontSize.xs - 2, color: Colors.primary, fontFamily: 'Poppins_400Regular' },
+  chipDur: { backgroundColor: colors.background, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20 },
+  chipDurText: { fontSize: FontSize.xs - 2, color: colors.textTertiary, fontFamily: 'Poppins_400Regular' },
+  chipLamp: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.primaryXLight, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 20 },
+  chipLampText: { fontSize: FontSize.xs - 2, color: colors.primary, fontFamily: 'Poppins_400Regular' },
 });

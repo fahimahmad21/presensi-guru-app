@@ -1,17 +1,18 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, Animated, ActivityIndicator, Platform,
+  StyleSheet, Animated, ActivityIndicator, Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import Colors from '../../constants/Colors';
-import { FontSize, Radius, Shadow } from '../../constants/Theme';
+import CalendarPickerModal from '../../components/CalendarPickerModal';
+import { ColorPalette } from '../../constants/Colors';
+import { useTheme } from '../../context/ThemeContext';
+import { FontSize, Radius, Shadow, Spacing } from '../../constants/Theme';
 import AppHeader from '../../components/AppHeader';
 import HeaderActions from '../../components/HeaderActions';
 import { AbsentReportItem, AbsentHistoryItem, PermitReportItem } from '../../types';
-import { getAbsentReport, getAllAbsentHistory } from '../../services/absentService';
+import { getAbsentReport, getAllAbsentHistory, getAbsentDetail } from '../../services/absentService';
 import { getPermitReport } from '../../services/permitService';
 
 type IonName = keyof typeof Ionicons.glyphMap;
@@ -22,17 +23,35 @@ const BAR_MAX_H = 80;
 const BULAN_SINGKAT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 const BULAN_PANJANG  = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 
-const STATUS_CFG: Record<string, { icon: IonName; color: string; bg: string }> = {
-  Hadir:     { icon: 'checkmark-circle', color: Colors.statusHadir,     bg: Colors.statusHadirBg     },
-  Terlambat: { icon: 'time',             color: Colors.statusTerlambat, bg: Colors.statusTerlambatBg },
-  Alpha:     { icon: 'close-circle',     color: Colors.statusAlpha,     bg: Colors.statusAlphaBg     },
-  Izin:      { icon: 'document-text',    color: Colors.statusIzin,      bg: Colors.statusIzinBg      },
+// Label tampilan untuk AttendanceStatus — "Terlambat" ditampilkan sebagai "Telat"
+const STATUS_LABEL: Record<AttendanceStatus, string> = {
+  Hadir: 'Hadir', Terlambat: 'Telat', Alpha: 'Alpha', Izin: 'Izin',
 };
 
-const BAR_COLOR: Record<string, string> = {
-  Hadir: Colors.primary, Terlambat: Colors.accentDark,
-  Alpha: Colors.border,  Izin: Colors.statusIzin,
-};
+function getStatusCfg(colors: ColorPalette): Record<string, { icon: IonName; color: string; bg: string }> {
+  return {
+    Hadir:     { icon: 'checkmark-circle', color: colors.statusHadir,     bg: colors.statusHadirBg     },
+    Terlambat: { icon: 'time',             color: colors.statusTerlambat, bg: colors.statusTerlambatBg },
+    Alpha:     { icon: 'close-circle',     color: colors.statusAlpha,     bg: colors.statusAlphaBg     },
+    Izin:      { icon: 'document-text',    color: colors.statusIzin,      bg: colors.statusIzinBg      },
+  };
+}
+
+// Keterangan status pulang (bagian kedua dari kode "T/PC", "CM/PT", dst.)
+function getPulangCfg(colors: ColorPalette): Record<string, { label: string; color: string }> {
+  return {
+    PC: { label: 'Pulang Cepat',  color: colors.statusTerlambat },
+    PT: { label: 'Pulang Tepat',  color: colors.statusHadir     },
+    P:  { label: 'Pulang Normal', color: colors.statusHadir     },
+  };
+}
+
+function getBarColor(colors: ColorPalette): Record<string, string> {
+  return {
+    Hadir: colors.primary, Terlambat: colors.accentDark,
+    Alpha: colors.border,  Izin: colors.statusIzin,
+  };
+}
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
@@ -87,8 +106,10 @@ function countRangeWorkdays(startStr: string, endStr: string): number {
 // ── History reconstruction ────────────────────────────────────────────────────
 // /absent/report ignores date params and only returns the current month.
 // For historical periods we use /absent/history (raw IN/OUT scans) and reconstruct
-// daily summaries. Terlambat distinction is not available from raw scan data.
+// daily summaries.
 
+// Lite version: status codes are placeholders (CM/PT) — fast, no extra requests.
+// Used where only presence (ada/tidaknya start & finish) matters, e.g. the Tahunan grid.
 function buildAbsentFromHistory(
   items: AbsentHistoryItem[],
   startDate: string,
@@ -105,21 +126,87 @@ function buildAbsentFromHistory(
   }
   const result: AbsentReportItem[] = [];
   for (const [date, { ins, outs }] of byDate.entries()) {
-    if (ins.length === 0) continue; // OUT without IN — skip
     ins.sort(); outs.sort();
-    const start  = ins[0];
+    const start  = ins.length > 0 ? ins[0] : '';
     const finish = outs.length > 0 ? outs[outs.length - 1] : '';
-    result.push({ date, score: 0, start, finish, status: finish ? 'CM/PT' : 'CM/NO' });
+    const masukCode  = start  ? 'CM' : 'NO';
+    const pulangCode = finish ? 'PT' : 'NO';
+    result.push({ date, score: 0, start, finish, status: `${masukCode}/${pulangCode}` });
+  }
+  return result;
+}
+
+type DetailCode = { code: string; value: number };
+type DetailCache = Map<string, DetailCode>;
+
+const DETAIL_FETCH_CONCURRENCY = 8;
+
+// Fetches /absent/history/{id} for any ids not already cached, in small parallel batches.
+async function fetchDetailCodes(ids: string[], cache: DetailCache): Promise<void> {
+  const todo = ids.filter(id => !cache.has(id));
+  for (let i = 0; i < todo.length; i += DETAIL_FETCH_CONCURRENCY) {
+    const batch = todo.slice(i, i + DETAIL_FETCH_CONCURRENCY);
+    await Promise.all(batch.map(async id => {
+      try {
+        const res = await getAbsentDetail(id);
+        const score = res.data.data.score;
+        cache.set(id, { code: score.code, value: Number(score.value) || 0 });
+      } catch {
+        cache.set(id, { code: 'NO', value: 0 });
+      }
+    }));
+  }
+}
+
+// Full version: fetches the real classification (CM/T/TM, PC/PT/P) for the first IN
+// and last OUT of each day via /absent/history/{id}, with caching across calls.
+// Used for Bulanan past months, Kustom, and the Tahunan month drill-down.
+async function buildAbsentFromHistoryWithCodes(
+  items: AbsentHistoryItem[],
+  startDate: string,
+  endDate: string,
+  detailCache: DetailCache,
+): Promise<AbsentReportItem[]> {
+  const byDate = new Map<string, { in: AbsentHistoryItem | null; out: AbsentHistoryItem | null }>();
+  for (const item of items) {
+    const d = item.date.split('T')[0];
+    if (d < startDate || d > endDate) continue;
+    let entry = byDate.get(d);
+    if (!entry) { entry = { in: null, out: null }; byDate.set(d, entry); }
+    if (item.type === 'IN') {
+      if (!entry.in || item.date < entry.in.date) entry.in = item;
+    } else {
+      if (!entry.out || item.date > entry.out.date) entry.out = item;
+    }
+  }
+
+  const ids: string[] = [];
+  for (const { in: inItem, out: outItem } of byDate.values()) {
+    if (inItem)  ids.push(inItem.id);
+    if (outItem) ids.push(outItem.id);
+  }
+  await fetchDetailCodes(ids, detailCache);
+
+  const result: AbsentReportItem[] = [];
+  for (const [date, { in: inItem, out: outItem }] of byDate.entries()) {
+    const start  = inItem  ? inItem.date.split('T')[1]?.substring(0, 5)  ?? '' : '';
+    const finish = outItem ? outItem.date.split('T')[1]?.substring(0, 5) ?? '' : '';
+    const masuk  = inItem  ? detailCache.get(inItem.id)!  : { code: 'NO', value: 0 };
+    const pulang = outItem ? detailCache.get(outItem.id)! : { code: 'NO', value: 0 };
+    result.push({ date, score: masuk.value + pulang.value, start, finish, status: `${masuk.code}/${pulang.code}` });
   }
   return result;
 }
 
 // ── Domain helpers ────────────────────────────────────────────────────────────
 
-// Returns null when day has no attendance (status "NO/NO", empty start)
+// Returns null when day has no attendance at all (start dan finish sama-sama kosong)
 function absentToStatus(rec: AbsentReportItem): 'Hadir' | 'Terlambat' | null {
-  if (!rec.start || rec.status.split('/')[0] === 'NO') return null;
-  return rec.status.split('/')[0] === 'T' ? 'Terlambat' : 'Hadir';
+  if (!rec.start && !rec.finish) return null;
+  const masuk = rec.status.split('/')[0];
+  // CM & T = Hadir, TM = Terlambat Masuk. Masuk "NO" (lupa scan masuk tapi ada scan
+  // pulang) tetap dihitung Hadir — bukan Alpha — karena tetap ada bukti kehadiran.
+  return masuk === 'TM' ? 'Terlambat' : 'Hadir';
 }
 
 function getDayStatus(
@@ -165,6 +252,7 @@ function buildWeekStrip(
 export interface RekapItem {
   date: string; status: AttendanceStatus;
   start: string | null; finish: string | null; permitName: string | null;
+  note: 'lupa_masuk' | 'lupa_pulang' | null;
 }
 
 export interface MonthStats {
@@ -184,7 +272,7 @@ function computeRangeStats(
   const absentMap = new Map(absentData.map(r => [r.date, r]));
   const permitMap = new Map(permitData.map(r => [r.date, r]));
 
-  const anyPresent = absentData.some(r => r.date >= startStr && r.date <= effectiveEnd && !!r.start);
+  const anyPresent = absentData.some(r => r.date >= startStr && r.date <= effectiveEnd && (!!r.start || !!r.finish));
   const anyPermit  = permitData.some(r => r.date >= startStr && r.date <= effectiveEnd);
   const hasData    = anyPresent || anyPermit;
 
@@ -192,17 +280,10 @@ function computeRangeStats(
     return { hadir: 0, terlambat: 0, izin: 0, alpha: 0, kerja: 0, persen: 0, rekapList: [], hasData: false };
   }
 
-  // Hitung Alpha mulai dari hari pertama ada aktivitas, bukan dari awal bulan
-  // Agar user baru yang dibuat di tengah bulan tidak mendapat Alpha untuk hari sebelum bergabung
-  const firstPresent = absentData.filter(r => !!r.start && r.date >= startStr).map(r => r.date).sort().at(0);
-  const firstPermit  = permitData.filter(r => r.date >= startStr).map(r => r.date).sort().at(0);
-  const candidates   = [firstPresent, firstPermit].filter(Boolean) as string[];
-  const effectiveStart = candidates.length > 0 ? candidates.sort().at(0)! : startStr;
-
   let kerja = 0, hadir = 0, terlambat = 0, izin = 0, alpha = 0;
   const rekapList: RekapItem[] = [];
 
-  const cur = new Date(effectiveStart + 'T00:00:00');
+  const cur = new Date(startStr + 'T00:00:00');
   const end = new Date(effectiveEnd + 'T00:00:00');
   while (cur <= end) {
     const ds = toDateStr(cur);
@@ -213,16 +294,20 @@ function computeRangeStats(
       const permit = permitMap.get(ds);
       if (presentStatus) {
         if (presentStatus === 'Terlambat') terlambat++; else hadir++;
+        const masukCode = absent!.status.split('/')[0];
+        const note: RekapItem['note'] =
+          masukCode === 'NO' && absent!.finish ? 'lupa_masuk' :
+          masukCode !== 'NO' && !absent!.finish ? 'lupa_pulang' : null;
         rekapList.push({ date: ds, status: presentStatus,
-          start: absent!.start || null, finish: absent!.finish || null, permitName: null });
+          start: absent!.start || null, finish: absent!.finish || null, permitName: null, note });
       } else if (permit) {
         izin++;
         rekapList.push({ date: ds, status: 'Izin',
-          start: null, finish: null, permitName: permit.permit });
+          start: null, finish: null, permitName: permit.permit, note: null });
       } else {
         alpha++;
         rekapList.push({ date: ds, status: 'Alpha',
-          start: null, finish: null, permitName: null });
+          start: null, finish: null, permitName: null, note: null });
       }
     }
     cur.setDate(cur.getDate() + 1);
@@ -295,8 +380,11 @@ function computeWeeklyBars(
   return bars;
 }
 
-interface YearMonthData { persen: number; hadir: number; kerja: number }
+interface YearMonthData {
+  persen: number; hadir: number; terlambat: number; izin: number; alpha: number; kerja: number;
+}
 
+// Built on top of computeRangeStats so the numbers always match the Bulanan/Kustom views.
 function computeYearlyData(
   year: number,
   absentData: AbsentReportItem[],
@@ -305,15 +393,13 @@ function computeYearlyData(
   const todayStr = toDateStr(new Date());
   return Array.from({ length: 12 }, (_, mi) => {
     const [s, e] = getMonthRange(year, mi);
-    if (s > todayStr) return { persen: 0, hadir: 0, kerja: 0 };
-    const hadir = absentData.filter(r => r.date >= s && r.date <= e && !!r.start).length;
-    const hasPermit = permitData.some(r => r.date >= s && r.date <= e);
-    // No check-ins and no permits = no employment data for this month
-    if (hadir === 0 && !hasPermit) return { persen: 0, hadir: 0, kerja: 0 };
-    // Cap to working days up to today so the current month percentage is fair
-    const effectiveEnd = e > todayStr ? todayStr : e;
-    const kerja = countRangeWorkdays(s, effectiveEnd);
-    return { kerja, hadir, persen: kerja > 0 ? Math.round(hadir / kerja * 100) : 0 };
+    if (s > todayStr) return { persen: 0, hadir: 0, terlambat: 0, izin: 0, alpha: 0, kerja: 0 };
+    const stats = computeRangeStats(s, e, absentData, permitData);
+    if (!stats.hasData) return { persen: 0, hadir: 0, terlambat: 0, izin: 0, alpha: 0, kerja: 0 };
+    return {
+      persen: stats.persen, hadir: stats.hadir, terlambat: stats.terlambat,
+      izin: stats.izin, alpha: stats.alpha, kerja: stats.kerja,
+    };
   });
 }
 
@@ -325,14 +411,17 @@ function StatsAndRekap({
   stats: MonthStats; showChart?: boolean;
   barData?: BarDayData[]; chartTrig?: number;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
+  const STATUS_CFG = useMemo(() => getStatusCfg(colors), [colors]);
   return (
     <>
       <View style={styles.statGrid}>
         {([
-          { icon: 'checkmark-circle' as IonName, num: stats.hadir,     label: 'Hadir',     color: Colors.statusHadir     },
-          { icon: 'document-text'    as IonName, num: stats.izin,      label: 'Izin',      color: Colors.statusIzin      },
-          { icon: 'close-circle'     as IonName, num: stats.alpha,     label: 'Alpha',     color: Colors.statusAlpha     },
-          { icon: 'time'             as IonName, num: stats.terlambat, label: 'Terlambat', color: Colors.statusTerlambat },
+          { icon: 'checkmark-circle' as IonName, num: stats.hadir,     label: 'Hadir',     color: colors.statusHadir     },
+          { icon: 'document-text'    as IonName, num: stats.izin,      label: 'Izin',      color: colors.statusIzin      },
+          { icon: 'close-circle'     as IonName, num: stats.alpha,     label: 'Alpha',     color: colors.statusAlpha     },
+          { icon: 'time'             as IonName, num: stats.terlambat, label: STATUS_LABEL.Terlambat, color: colors.statusTerlambat },
         ]).map(item => (
           <View key={item.label} style={[styles.statCard, Shadow.sm]}>
             <Ionicons name={item.icon} size={22} color="#AAAAAA" />
@@ -354,9 +443,9 @@ function StatsAndRekap({
             <AnimatedBarChart data={barData} trigger={chartTrig} />
             <View style={styles.legend}>
               {[
-                { color: Colors.primary,    label: '≥80% hadir'   },
-                { color: Colors.accentDark, label: '40–79%'        },
-                { color: Colors.border,     label: '<40% / belum'  },
+                { color: colors.primary,    label: '≥80% hadir'   },
+                { color: colors.accentDark, label: '40–79%'        },
+                { color: colors.border,     label: '<40% / belum'  },
               ].map(l => (
                 <View key={l.label} style={styles.lgd}>
                   <View style={[styles.ldot, { backgroundColor: l.color }]} />
@@ -372,7 +461,7 @@ function StatsAndRekap({
         <Text style={styles.rekapTitle}>Rekap Detail</Text>
         {stats.rekapList.length === 0 ? (
           <View style={[styles.emptyBox, Shadow.sm]}>
-            <Ionicons name="calendar-outline" size={36} color={Colors.textHint} />
+            <Ionicons name="calendar-outline" size={36} color={colors.textHint} />
             <Text style={styles.emptyText}>Belum ada data pada periode ini</Text>
           </View>
         ) : (
@@ -384,7 +473,11 @@ function StatsAndRekap({
             const hari = d.toLocaleDateString('id-ID', { weekday: 'long' });
             const waktu = item.start && item.finish
               ? `${item.start} – ${item.finish}`
+              : item.start || item.finish
+              ? `${item.start ?? '–'} – ${item.finish ?? '–'}`
               : item.permitName ?? (item.status === 'Alpha' ? 'Tidak hadir' : item.status);
+            const noteLabel = item.note === 'lupa_masuk' ? 'Lupa Absen Masuk'
+              : item.note === 'lupa_pulang' ? 'Lupa Absen Pulang' : null;
             return (
               <View key={idx} style={[styles.rekapItem, Shadow.sm]}>
                 <View style={styles.rekapDate}>
@@ -395,11 +488,16 @@ function StatsAndRekap({
                   <Text style={styles.rekapHari}>{hari}</Text>
                   <View style={styles.rekapChips}>
                     <View style={[styles.rekapChip, { backgroundColor: sc.bg }]}>
-                      <Text style={[styles.rekapChipText, { color: sc.color }]}>{item.status}</Text>
+                      <Text style={[styles.rekapChipText, { color: sc.color }]}>{STATUS_LABEL[item.status]}</Text>
                     </View>
                     {waktu ? (
-                      <View style={[styles.rekapChip, { backgroundColor: Colors.background }]}>
-                        <Text style={[styles.rekapChipText, { color: Colors.textSecondary }]}>{waktu}</Text>
+                      <View style={[styles.rekapChip, { backgroundColor: colors.background }]}>
+                        <Text style={[styles.rekapChipText, { color: colors.textSecondary }]}>{waktu}</Text>
+                      </View>
+                    ) : null}
+                    {noteLabel ? (
+                      <View style={[styles.rekapChip, { backgroundColor: colors.statusTerlambatBg }]}>
+                        <Text style={[styles.rekapChipText, { color: colors.statusTerlambat }]}>{noteLabel}</Text>
                       </View>
                     ) : null}
                   </View>
@@ -417,6 +515,9 @@ function StatsAndRekap({
 // ── AnimatedBarChart ──────────────────────────────────────────────────────────
 
 function AnimatedBarChart({ data, trigger }: { data: BarDayData[]; trigger: number }) {
+  const { colors } = useTheme();
+  const chartStyles = useMemo(() => getChartStyles(colors), [colors]);
+  const BAR_COLOR = useMemo(() => getBarColor(colors), [colors]);
   // Sync animated-value array when data length changes (weekly bars: 4–5 items)
   const animsRef = useRef<Animated.Value[]>([]);
   if (animsRef.current.length !== data.length) {
@@ -439,7 +540,7 @@ function AnimatedBarChart({ data, trigger }: { data: BarDayData[]; trigger: numb
     <View style={{ marginTop: 16 }}>
       <View style={chartStyles.chartContainer}>
         {data.map((d, i) => {
-          const color = BAR_COLOR[d.status] ?? Colors.border;
+          const color = BAR_COLOR[d.status] ?? colors.border;
           const isAct = active === i;
           return (
             <TouchableOpacity
@@ -457,7 +558,7 @@ function AnimatedBarChart({ data, trigger }: { data: BarDayData[]; trigger: numb
                   backgroundColor: color, opacity: isAct ? 1 : 0.85, height: anims[i],
                 }]} />
               </View>
-              <Text style={[chartStyles.dayLabel, isAct && { color: Colors.primary, fontFamily: 'Poppins_700Bold' }]}>
+              <Text style={[chartStyles.dayLabel, isAct && { color: colors.primary, fontFamily: 'Poppins_700Bold' }]}>
                 {d.day}
               </Text>
             </TouchableOpacity>
@@ -474,6 +575,8 @@ function TahunanBulanGrid({ data, tahun, animTrigger, selectedBulanIdx, setSelec
   data: YearMonthData[]; tahun: number; animTrigger: number;
   selectedBulanIdx: number | null; setSelectedBulanIdx: (i: number | null) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
   const progAnims = useRef(data.map(() => new Animated.Value(0))).current;
 
   useEffect(() => {
@@ -492,10 +595,10 @@ function TahunanBulanGrid({ data, tahun, animTrigger, selectedBulanIdx, setSelec
         const hasStarted = toDateStr(new Date(tahun, mi, 1)) <= todayStr;
         const hasData    = item.kerja > 0;
         const terpilih   = selectedBulanIdx === mi;
-        const warna      = item.persen >= 90 ? Colors.statusHadir
-          : item.persen >= 75 ? Colors.statusIzin
-          : item.persen > 0   ? Colors.statusAlpha
-          : Colors.textHint;
+        const warna      = item.persen >= 90 ? colors.statusHadir
+          : item.persen >= 75 ? colors.statusIzin
+          : item.persen > 0   ? colors.statusAlpha
+          : colors.textHint;
         const animWidth = progAnims[mi].interpolate({
           inputRange: [0, 100], outputRange: ['0%', '100%'], extrapolate: 'clamp',
         });
@@ -510,14 +613,14 @@ function TahunanBulanGrid({ data, tahun, animTrigger, selectedBulanIdx, setSelec
             onPress={() => hasStarted && setSelectedBulanIdx(terpilih ? null : mi)}
             activeOpacity={hasStarted ? 0.75 : 1}
           >
-            <Text style={[styles.bulanNama, terpilih && { color: Colors.primary }]}>{BULAN_SINGKAT[mi]}</Text>
+            <Text style={[styles.bulanNama, terpilih && { color: colors.primary }]}>{BULAN_SINGKAT[mi]}</Text>
             {hasData ? (
               <>
                 <Text style={[styles.bulanPersen, { color: warna }]}>{item.persen}%</Text>
                 <View style={styles.bulanProgWrap}>
                   <Animated.View style={[styles.bulanProgBar, { width: animWidth, backgroundColor: warna }]} />
                 </View>
-                <Text style={styles.bulanDetail}>{item.hadir}/{item.kerja}</Text>
+                <Text style={styles.bulanDetail}>{item.hadir + item.terlambat}/{item.kerja}</Text>
               </>
             ) : hasStarted ? (
               <Text style={[styles.bulanDetail, { textAlign: 'center', marginTop: 2, lineHeight: 13 }]}>
@@ -536,6 +639,11 @@ function TahunanBulanGrid({ data, tahun, animTrigger, selectedBulanIdx, setSelec
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function LaporanScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
+  const STATUS_CFG = useMemo(() => getStatusCfg(colors), [colors]);
+  const PULANG_CFG = useMemo(() => getPulangCfg(colors), [colors]);
+
   const today    = useMemo(() => new Date(), []);
   const todayStr = useMemo(() => toDateStr(today), []);
 
@@ -543,14 +651,18 @@ export default function LaporanScreen() {
 
   // Harian nav
   const [hariTerpilih, setHariTerpilih] = useState(todayStr);
+  const [showHariPicker, setShowHariPicker] = useState(false);
 
   // Bulanan nav
   const [bulanIdx,   setBulanIdx]   = useState(today.getMonth());
   const [tahunBulan, setTahunBulan] = useState(today.getFullYear());
+  const [showBulanPicker, setShowBulanPicker] = useState(false);
+  const [bulanPickerYear, setBulanPickerYear] = useState(today.getFullYear());
 
   // Tahunan nav
   const [tahun,            setTahun]            = useState(today.getFullYear());
   const [selectedBulanIdx, setSelectedBulanIdx] = useState<number | null>(null);
+  const [showTahunPicker,  setShowTahunPicker]  = useState(false);
 
   // Kustom filter
   const firstDayThisMonth = useMemo(() => new Date(today.getFullYear(), today.getMonth(), 1), []);
@@ -573,12 +685,22 @@ export default function LaporanScreen() {
   // Current-month absent data for Harian monthly score card (score field only available from /absent/report)
   const [curMonthAbsent, setCurMonthAbsent] = useState<AbsentReportItem[]>([]);
 
+  // Absent data (with real scores) for the month of the selected day in Harian — follows hariTerpilih
+  const [selMonthAbsent, setSelMonthAbsent] = useState<AbsentReportItem[]>([]);
+  const [selMonthLoading, setSelMonthLoading] = useState(false);
+  const monthAbsentCache = useRef<Map<string, AbsentReportItem[]>>(new Map());
+
   // Cache history to avoid redundant API calls within the same session
   const historyCache = useRef<AbsentHistoryItem[] | null>(null);
+  // Cache /absent/history/{id} lookups (real CM/T/TM/PC/PT codes), keyed by scan id
+  const detailCache = useRef<DetailCache>(new Map());
 
   // Fetch absent data: use /absent/report for current-month periods (has CM/T status),
   // fall back to /absent/history for past periods and year view (report ignores date params).
-  const fetchAbsent = async (start: string, finish: string, forceHistory = false) => {
+  // withCodes: fetch real per-scan classification (CM/T/TM/PC/PT) for accurate Terlambat detection.
+  const fetchAbsent = async (start: string, finish: string, opts?: { forceHistory?: boolean; withCodes?: boolean }) => {
+    const forceHistory = opts?.forceHistory ?? false;
+    const withCodes    = opts?.withCodes ?? false;
     const currentTodayStr = toDateStr(new Date());
     const useReport = !forceHistory && finish >= currentTodayStr;
     if (useReport) {
@@ -589,7 +711,9 @@ export default function LaporanScreen() {
       const res = await getAllAbsentHistory();
       historyCache.current = res.data.data ?? [];
     }
-    return buildAbsentFromHistory(historyCache.current, start, finish);
+    return withCodes
+      ? buildAbsentFromHistoryWithCodes(historyCache.current, start, finish, detailCache.current)
+      : buildAbsentFromHistory(historyCache.current, start, finish);
   };
 
   const loadData = useCallback(async () => {
@@ -606,7 +730,7 @@ export default function LaporanScreen() {
     setLoadError(null);
     try {
       const [absent, permit] = await Promise.all([
-        fetchAbsent(start, finish, periode === 'Tahunan'),
+        fetchAbsent(start, finish, { forceHistory: periode === 'Tahunan', withCodes: periode !== 'Tahunan' }),
         getPermitReport(start, finish).then(r => r.data.data ?? []),
       ]);
       setAbsentData(absent);
@@ -630,6 +754,35 @@ export default function LaporanScreen() {
       .catch(() => {});
   }, [periode]);
 
+  // Score data for the score card follows the month of the selected day, not the calendar's
+  // current month. Current month reuses curMonthAbsent (real scores via /absent/report);
+  // other months fetch real per-scan codes via history details (Option D), cached per month.
+  useEffect(() => {
+    if (periode !== 'Harian') return;
+    const d = new Date(hariTerpilih + 'T00:00:00');
+    const year = d.getFullYear(), month = d.getMonth();
+    const now = new Date();
+    if (year === now.getFullYear() && month === now.getMonth()) {
+      setSelMonthAbsent(curMonthAbsent);
+      return;
+    }
+    const key = `${year}-${month}`;
+    const cached = monthAbsentCache.current.get(key);
+    if (cached) { setSelMonthAbsent(cached); return; }
+    let cancelled = false;
+    setSelMonthLoading(true);
+    const [mStart, mEnd] = getMonthRange(year, month);
+    fetchAbsent(mStart, mEnd, { forceHistory: true, withCodes: true })
+      .then(absent => {
+        if (cancelled) return;
+        monthAbsentCache.current.set(key, absent);
+        setSelMonthAbsent(absent);
+      })
+      .catch(() => { if (!cancelled) setSelMonthAbsent([]); })
+      .finally(() => { if (!cancelled) setSelMonthLoading(false); });
+    return () => { cancelled = true; };
+  }, [periode, hariTerpilih, curMonthAbsent]);
+
   const handleFilterApply = async () => {
     const start  = toDateStr(filterStart);
     const finish = toDateStr(filterEnd);
@@ -637,7 +790,7 @@ export default function LaporanScreen() {
     setFilterLoading(true);
     try {
       const [absent, permit] = await Promise.all([
-        fetchAbsent(start, finish),
+        fetchAbsent(start, finish, { withCodes: true }),
         getPermitReport(start, finish).then(r => r.data.data ?? []),
       ]);
       setFilterAbsent(absent);
@@ -708,6 +861,30 @@ export default function LaporanScreen() {
 
   const selScore = useMemo(() => selEffectiveAbsent?.score ?? 0, [selEffectiveAbsent]);
 
+  // Keterangan pulang (PC/PT/P) dari bagian kedua kode status, mis. "T/PC"
+  const pulangInfo = useMemo(() => {
+    const code = selEffectiveAbsent?.status?.split('/')[1];
+    return code ? PULANG_CFG[code] ?? null : null;
+  }, [selEffectiveAbsent, PULANG_CFG]);
+
+  // Catatan jika lupa absen masuk tapi ada absen pulang (status "NO/...")
+  const masukInfo = useMemo(() => {
+    const code = selEffectiveAbsent?.status?.split('/')[0];
+    if (code === 'NO' && selEffectiveAbsent?.finish) {
+      return { label: 'Lupa absen masuk', color: colors.statusTerlambat };
+    }
+    return null;
+  }, [selEffectiveAbsent, colors]);
+
+  // Catatan jika absen masuk valid tapi lupa absen pulang (status ".../NO")
+  const pulangMissingInfo = useMemo(() => {
+    const masuk = selEffectiveAbsent?.status?.split('/')[0];
+    if (masuk && masuk !== 'NO' && !selEffectiveAbsent?.finish) {
+      return { label: 'Lupa absen pulang', color: colors.statusTerlambat };
+    }
+    return null;
+  }, [selEffectiveAbsent, colors]);
+
   const monthStats = useMemo(
     () => computeMonthStats(tahunBulan, bulanIdx, absentData, permitData),
     [tahunBulan, bulanIdx, absentData, permitData],
@@ -722,27 +899,48 @@ export default function LaporanScreen() {
     const aktif = yearlyData.filter(d => d.kerja > 0);
     return aktif.length ? Math.round(aktif.reduce((s, d) => s + d.persen, 0) / aktif.length) : 0;
   }, [yearlyData]);
-  const totalHadir = useMemo(() => yearlyData.reduce((s, d) => s + d.hadir, 0), [yearlyData]);
-  const totalKerja = useMemo(() => yearlyData.reduce((s, d) => s + d.kerja, 0), [yearlyData]);
-  const totalIzin  = useMemo(() => permitData.length, [permitData]);
-  const totalAlpha = useMemo(() => Math.max(0, totalKerja - totalHadir - totalIzin), [totalKerja, totalHadir, totalIzin]);
+  const totalHadir = useMemo(() => yearlyData.reduce((s, d) => s + d.hadir + d.terlambat, 0), [yearlyData]);
+  const totalIzin  = useMemo(() => yearlyData.reduce((s, d) => s + d.izin, 0), [yearlyData]);
+  const totalAlpha = useMemo(() => yearlyData.reduce((s, d) => s + d.alpha, 0), [yearlyData]);
+
+  // Tahunan grid uses lite (hardcoded) status codes — fetch accurate Hadir/Terlambat
+  // split for the drilled-down month using real /absent/history/{id} codes.
+  const [selectedBulanStats, setSelectedBulanStats] = useState<MonthStats | null>(null);
+  const [selectedBulanLoading, setSelectedBulanLoading] = useState(false);
+  useEffect(() => {
+    if (periode !== 'Tahunan' || selectedBulanIdx === null) { setSelectedBulanStats(null); return; }
+    let cancelled = false;
+    const [s, e] = getMonthRange(tahun, selectedBulanIdx);
+    setSelectedBulanLoading(true);
+    fetchAbsent(s, e, { forceHistory: true, withCodes: true })
+      .then(absent => {
+        if (cancelled) return;
+        setSelectedBulanStats(computeRangeStats(s, e, absent, permitData));
+      })
+      .catch(() => { if (!cancelled) setSelectedBulanStats(null); })
+      .finally(() => { if (!cancelled) setSelectedBulanLoading(false); });
+    return () => { cancelled = true; };
+  }, [periode, selectedBulanIdx, tahun, permitData]);
 
   const filterStats = useMemo(() => {
     if (!filterApplied) return null;
     return computeRangeStats(toDateStr(filterStart), toDateStr(filterEnd), filterAbsent, filterPermit);
   }, [filterApplied, filterStart, filterEnd, filterAbsent, filterPermit]);
 
-  // Monthly score stats for Harian view — uses curMonthAbsent which has real score values
+  // Monthly score stats for Harian view — follows the month of hariTerpilih
   const monthlyScoreStats = useMemo(() => {
-    const scored = curMonthAbsent.filter(r => r.score > 0);
+    const scored = selMonthAbsent.filter(r => r.score > 0);
     if (scored.length === 0) return null;
+    const d = new Date(hariTerpilih + 'T00:00:00');
+    const year = d.getFullYear(), month = d.getMonth();
     const now = new Date();
-    const todStr = toDateStr(now);
-    const [mStart] = getMonthRange(now.getFullYear(), now.getMonth());
-    const monthScored = scored.filter(r => r.date >= mStart && r.date <= todStr);
+    const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
+    const [mStart, mEndFull] = getMonthRange(year, month);
+    const mEnd = isCurrentMonth ? toDateStr(now) : mEndFull;
+    const monthScored = scored.filter(r => r.date >= mStart && r.date <= mEnd);
     if (monthScored.length === 0) return null;
     const totalScore  = monthScored.reduce((s, r) => s + r.score, 0);
-    const workdays    = countRangeWorkdays(mStart, todStr);
+    const workdays    = countRangeWorkdays(mStart, mEnd);
     const maxScore    = workdays * 8;
     return {
       totalScore,
@@ -750,9 +948,9 @@ export default function LaporanScreen() {
       presentDays: monthScored.length,
       workdays,
       persen: maxScore > 0 ? Math.round(totalScore / maxScore * 100) : 0,
-      bulan: BULAN_PANJANG[now.getMonth()],
+      bulan: BULAN_PANJANG[month],
     };
-  }, [curMonthAbsent]);
+  }, [selMonthAbsent, hariTerpilih]);
 
   const pindahHari = (arah: number) => {
     const d = new Date(hariTerpilih + 'T00:00:00'); d.setDate(d.getDate() + arah);
@@ -792,7 +990,7 @@ export default function LaporanScreen() {
               onPress={() => { setPeriode(p); if (p !== 'Kustom') setFilterApplied(false); }}
             >
               {p === 'Kustom' && (
-                <Ionicons name="calendar-outline" size={13} color={periode === p ? Colors.primary : Colors.textTertiary} style={{ marginRight: 4 }} />
+                <Ionicons name="calendar-outline" size={13} color={periode === p ? colors.primary : colors.textTertiary} style={{ marginRight: 4 }} />
               )}
               <Text style={[styles.togText, periode === p && styles.togTextOn]}>{p}</Text>
             </TouchableOpacity>
@@ -801,13 +999,13 @@ export default function LaporanScreen() {
 
         {loading && (
           <View style={styles.loadingRow}>
-            <ActivityIndicator color={Colors.primary} size="small" />
+            <ActivityIndicator color={colors.primary} size="small" />
             <Text style={styles.loadingText}>Memuat data...</Text>
           </View>
         )}
         {!loading && loadError && (
           <View style={styles.errorRow}>
-            <Ionicons name="warning-outline" size={16} color={Colors.error} />
+            <Ionicons name="warning-outline" size={16} color={colors.error} />
             <Text style={styles.errorText}>{loadError}</Text>
             <TouchableOpacity onPress={loadData}>
               <Text style={styles.retryText}>Coba lagi</Text>
@@ -820,13 +1018,23 @@ export default function LaporanScreen() {
           <>
             <View style={[styles.navRow, Shadow.sm]}>
               <TouchableOpacity style={styles.navBtn} onPress={() => pindahHari(-1)}>
-                <Ionicons name="chevron-back" size={18} color={Colors.textSecondary} />
+                <Ionicons name="chevron-back" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
-              <Text style={styles.navTitle}>{hariLabel}</Text>
+              <TouchableOpacity style={styles.navTitleBtn} onPress={() => setShowHariPicker(true)} activeOpacity={0.7}>
+                <Text style={styles.navTitle}>{hariLabel}</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.navBtn} onPress={() => pindahHari(1)}>
-                <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
+
+            <CalendarPickerModal
+              visible={showHariPicker}
+              value={new Date(hariTerpilih + 'T00:00:00')}
+              maximumDate={today}
+              onSelect={d => { setShowHariPicker(false); setHariTerpilih(toDateStr(d)); }}
+              onClose={() => setShowHariPicker(false)}
+            />
 
             <View style={[styles.weekStrip, Shadow.sm]}>
               {weekStrip.map(day => {
@@ -840,46 +1048,51 @@ export default function LaporanScreen() {
                   >
                     <Text style={[styles.weekDayLabel, day.isSelected && styles.weekDayLabelSelected]}>{day.label}</Text>
                     <Text style={[styles.weekDayNum,   day.isSelected && styles.weekDayNumSelected]}>{day.num}</Text>
-                    <View style={[styles.weekDot, { backgroundColor: sc ? sc.color : Colors.border }]} />
+                    <View style={[styles.weekDot, { backgroundColor: sc ? sc.color : colors.border }]} />
                   </TouchableOpacity>
                 );
               })}
             </View>
 
             {(isFuture || isSunday) ? (
-              <View style={[styles.hariCard, Shadow.sm, { borderLeftColor: Colors.border }]}>
+              <View style={[styles.hariCard, Shadow.sm, { borderLeftColor: colors.border }]}>
                 <View style={styles.hariEmpty}>
-                  <Ionicons name="calendar-outline" size={40} color={Colors.textHint} />
+                  <Ionicons name="calendar-outline" size={40} color={colors.textHint} />
                   <Text style={styles.hariEmptyText}>
                     {isSunday ? 'Hari Minggu' : 'Tanggal belum berlangsung'}
                   </Text>
                 </View>
               </View>
             ) : selPresentAbsent ? (
-              <View style={[styles.hariCard, Shadow.sm, { borderLeftColor: STATUS_CFG[selStatus]?.color ?? Colors.border }]}>
+              <View style={[styles.hariCard, Shadow.sm, { borderLeftColor: STATUS_CFG[selStatus]?.color ?? colors.border }]}>
                 <View style={[styles.hariStatusBadge, { backgroundColor: STATUS_CFG[selStatus]?.bg }]}>
                   <Ionicons name={STATUS_CFG[selStatus]?.icon ?? 'help-circle-outline'} size={22} color={STATUS_CFG[selStatus]?.color} />
-                  <Text style={[styles.hariStatusText, { color: STATUS_CFG[selStatus]?.color }]}>{selStatus}</Text>
+                  <Text style={[styles.hariStatusText, { color: STATUS_CFG[selStatus]?.color }]}>{STATUS_LABEL[selStatus]}</Text>
                 </View>
                 {([
-                  { icon: 'log-in-outline'  as IonName, label: 'Jam Masuk',  val: selPresentAbsent.start  || '–', color: Colors.statusHadir },
-                  { icon: 'log-out-outline' as IonName, label: 'Jam Keluar', val: selPresentAbsent.finish || '–', color: Colors.primary     },
+                  { icon: 'log-in-outline'  as IonName, label: 'Jam Masuk',  val: selPresentAbsent.start  || '–', color: colors.statusHadir, sub: masukInfo },
+                  { icon: 'log-out-outline' as IonName, label: 'Jam Keluar', val: selPresentAbsent.finish || '–', color: colors.primary,     sub: pulangInfo ?? pulangMissingInfo },
                 ] as const).map(row => (
                   <View key={row.label} style={styles.hariRow}>
                     <View style={styles.hariRowLeft}>
-                      <Ionicons name={row.icon} size={15} color={Colors.textHint} />
+                      <Ionicons name={row.icon} size={15} color={colors.textHint} />
                       <Text style={styles.hariRowLabel}>{row.label}</Text>
                     </View>
-                    <Text style={[styles.hariRowVal, { color: row.color }]}>{row.val}</Text>
+                    <View style={styles.hariRowRight}>
+                      <Text style={[styles.hariRowVal, { color: row.color }]}>{row.val}</Text>
+                      {row.sub && (
+                        <Text style={[styles.hariRowSub, { color: row.sub.color }]}>{row.sub.label}</Text>
+                      )}
+                    </View>
                   </View>
                 ))}
                 {selScore > 0 && (
                   <View style={styles.hariRow}>
                     <View style={styles.hariRowLeft}>
-                      <Ionicons name="stats-chart-outline" size={15} color={Colors.textHint} />
+                      <Ionicons name="stats-chart-outline" size={15} color={colors.textHint} />
                       <Text style={styles.hariRowLabel}>Skor</Text>
                     </View>
-                    <Text style={[styles.hariRowVal, { color: Colors.primary }]}>
+                    <Text style={[styles.hariRowVal, { color: colors.primary }]}>
                       {selScore} poin
                     </Text>
                   </View>
@@ -893,10 +1106,10 @@ export default function LaporanScreen() {
                 </View>
                 <View style={styles.hariRow}>
                   <View style={styles.hariRowLeft}>
-                    <Ionicons name="document-text-outline" size={15} color={Colors.textHint} />
+                    <Ionicons name="document-text-outline" size={15} color={colors.textHint} />
                     <Text style={styles.hariRowLabel}>Keterangan</Text>
                   </View>
-                  <Text style={[styles.hariRowVal, { color: Colors.statusIzin }]}>{selPermit.permit}</Text>
+                  <Text style={[styles.hariRowVal, { color: colors.statusIzin }]}>{selPermit.permit}</Text>
                 </View>
               </View>
             ) : hasAnyActivity ? (
@@ -910,20 +1123,21 @@ export default function LaporanScreen() {
                 </View>
               </View>
             ) : (
-              <View style={[styles.hariCard, Shadow.sm, { borderLeftColor: Colors.border }]}>
+              <View style={[styles.hariCard, Shadow.sm, { borderLeftColor: colors.border }]}>
                 <View style={styles.hariEmpty}>
-                  <Ionicons name="calendar-outline" size={40} color={Colors.textHint} />
+                  <Ionicons name="calendar-outline" size={40} color={colors.textHint} />
                   <Text style={styles.hariEmptyText}>Belum ada data absensi</Text>
                 </View>
               </View>
             )}
 
             {/* Monthly score progress card */}
-            {monthlyScoreStats && (
+            {monthlyScoreStats ? (
               <View style={[styles.skorBulanCard, Shadow.sm]}>
                 <View style={styles.skorBulanHeader}>
-                  <Ionicons name="stats-chart-outline" size={16} color={Colors.primary} />
+                  <Ionicons name="stats-chart-outline" size={16} color={colors.primary} />
                   <Text style={styles.skorBulanTitle}>Skor {monthlyScoreStats.bulan}</Text>
+                  {selMonthLoading && <ActivityIndicator size="small" color={colors.primary} />}
                   <Text style={styles.skorBulanPersen}>{monthlyScoreStats.persen}%</Text>
                 </View>
                 <View style={styles.skorBulanBarWrap}>
@@ -938,7 +1152,17 @@ export default function LaporanScreen() {
                   </Text>
                 </View>
               </View>
-            )}
+            ) : selMonthLoading ? (
+              <View style={[styles.skorBulanCard, Shadow.sm]}>
+                <View style={styles.skorBulanHeader}>
+                  <Ionicons name="stats-chart-outline" size={16} color={colors.primary} />
+                  <Text style={styles.skorBulanTitle}>
+                    Skor {BULAN_PANJANG[new Date(hariTerpilih + 'T00:00:00').getMonth()]}
+                  </Text>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              </View>
+            ) : null}
           </>
         )}
 
@@ -947,11 +1171,17 @@ export default function LaporanScreen() {
           <>
             <View style={[styles.navRow, Shadow.sm]}>
               <TouchableOpacity style={styles.navBtn} onPress={prevBulan}>
-                <Ionicons name="chevron-back" size={18} color={Colors.textSecondary} />
+                <Ionicons name="chevron-back" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
-              <Text style={styles.navTitle}>{BULAN_PANJANG[bulanIdx]} {tahunBulan}</Text>
+              <TouchableOpacity
+                style={styles.navTitleBtn}
+                activeOpacity={0.7}
+                onPress={() => { setBulanPickerYear(tahunBulan); setShowBulanPicker(true); }}
+              >
+                <Text style={styles.navTitle}>{BULAN_PANJANG[bulanIdx]} {tahunBulan}</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.navBtn} onPress={nextBulan}>
-                <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -959,7 +1189,7 @@ export default function LaporanScreen() {
               <StatsAndRekap stats={monthStats} showChart barData={barData} chartTrig={chartTrig} />
             ) : (
               <View style={[styles.emptyBox, Shadow.sm, { marginHorizontal: 14 }]}>
-                <Ionicons name="calendar-outline" size={40} color={Colors.textHint} />
+                <Ionicons name="calendar-outline" size={40} color={colors.textHint} />
                 <Text style={styles.emptyText}>Tidak ada data kehadiran untuk periode ini</Text>
               </View>
             )}
@@ -971,11 +1201,13 @@ export default function LaporanScreen() {
           <>
             <View style={[styles.navRow, Shadow.sm]}>
               <TouchableOpacity style={styles.navBtn} onPress={() => setTahun(t => t - 1)}>
-                <Ionicons name="chevron-back" size={18} color={Colors.textSecondary} />
+                <Ionicons name="chevron-back" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
-              <Text style={styles.navTitle}>Tahun {tahun}</Text>
+              <TouchableOpacity style={styles.navTitleBtn} activeOpacity={0.7} onPress={() => setShowTahunPicker(true)}>
+                <Text style={styles.navTitle}>Tahun {tahun}</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.navBtn} onPress={() => setTahun(t => t + 1)}>
-                <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -987,9 +1219,9 @@ export default function LaporanScreen() {
               </View>
               <View style={styles.tahunRingkasan}>
                 {[
-                  { label: 'Total Hadir', val: totalHadir, color: Colors.success    },
-                  { label: 'Total Alpha', val: totalAlpha, color: Colors.error      },
-                  { label: 'Total Izin',  val: totalIzin,  color: Colors.accentDark },
+                  { label: 'Total Hadir', val: totalHadir, color: colors.success    },
+                  { label: 'Total Alpha', val: totalAlpha, color: colors.error      },
+                  { label: 'Total Izin',  val: totalIzin,  color: colors.accentDark },
                 ].map(row => (
                   <View key={row.label} style={styles.tahunRingRow}>
                     <Text style={[styles.tahunRingVal, { color: row.color }]}>{row.val}</Text>
@@ -1006,21 +1238,26 @@ export default function LaporanScreen() {
             />
 
             {selectedBulanIdx !== null && (() => {
-              const d     = yearlyData[selectedBulanIdx];
-              const alpha = Math.max(0, d.kerja - d.hadir);
+              const fallback = yearlyData[selectedBulanIdx];
+              const d = selectedBulanStats ?? fallback;
               return (
                 <View style={[styles.bulanDetailPanel, Shadow.sm]}>
                   <View style={styles.bulanDetailHeader}>
                     <Text style={styles.bulanDetailTitle}>
                       Detail — {BULAN_PANJANG[selectedBulanIdx]} {tahun}
                     </Text>
-                    <TouchableOpacity onPress={() => setSelectedBulanIdx(null)}>
-                      <Ionicons name="close-circle" size={20} color={Colors.textHint} />
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      {selectedBulanLoading && (
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      )}
+                      <TouchableOpacity onPress={() => setSelectedBulanIdx(null)}>
+                        <Ionicons name="close-circle" size={20} color={colors.textHint} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                  {d.kerja === 0 ? (
+                  {fallback.kerja === 0 ? (
                     <View style={{ alignItems: 'center', paddingVertical: 20, gap: 8 }}>
-                      <Ionicons name="calendar-outline" size={32} color={Colors.textHint} />
+                      <Ionicons name="calendar-outline" size={32} color={colors.textHint} />
                       <Text style={[styles.bulanDetailLabel, { textAlign: 'center' }]}>
                         Tidak ada data kehadiran untuk bulan ini
                       </Text>
@@ -1028,10 +1265,12 @@ export default function LaporanScreen() {
                   ) : (
                     <View style={styles.bulanDetailGrid}>
                       {([
-                        { icon: 'checkmark-circle' as IonName, label: 'Hadir',      val: `${d.hadir} hari`,  color: Colors.statusHadir },
-                        { icon: 'close-circle'     as IonName, label: 'Alpha',      val: `${alpha} hari`,    color: Colors.statusAlpha },
-                        { icon: 'calendar'         as IonName, label: 'Hari Kerja', val: `${d.kerja} hari`,  color: Colors.textPrimary },
-                        { icon: 'stats-chart'      as IonName, label: 'Kehadiran',  val: `${d.persen}%`,     color: Colors.primary     },
+                        { icon: 'checkmark-circle' as IonName, label: 'Hadir',      val: `${d.hadir} hari`,     color: colors.statusHadir     },
+                        { icon: 'time'             as IonName, label: STATUS_LABEL.Terlambat,  val: `${d.terlambat} hari`, color: colors.statusTerlambat },
+                        { icon: 'document-text'    as IonName, label: 'Izin',       val: `${d.izin} hari`,      color: colors.statusIzin      },
+                        { icon: 'close-circle'     as IonName, label: 'Alpha',      val: `${d.alpha} hari`,     color: colors.statusAlpha     },
+                        { icon: 'calendar'         as IonName, label: 'Hari Kerja', val: `${d.kerja} hari`,     color: colors.textPrimary     },
+                        { icon: 'stats-chart'      as IonName, label: 'Kehadiran',  val: `${d.persen}%`,        color: colors.primary         },
                       ] as const).map(row => (
                         <View key={row.label} style={styles.bulanDetailRow}>
                           <Ionicons name={row.icon} size={16} color={row.color} />
@@ -1053,7 +1292,7 @@ export default function LaporanScreen() {
             {/* Date range card */}
             <View style={[styles.filterCard, Shadow.sm]}>
               <View style={styles.filterCardHeader}>
-                <Ionicons name="filter-outline" size={18} color={Colors.primary} />
+                <Ionicons name="filter-outline" size={18} color={colors.primary} />
                 <Text style={styles.filterCardTitle}>Filter Rentang Tanggal</Text>
               </View>
 
@@ -1063,18 +1302,13 @@ export default function LaporanScreen() {
                 <Text style={styles.filterInputText}>{fmtDisplayDate(filterStart)}</Text>
                 <Ionicons name="chevron-down" size={14} color="#AAAAAA" />
               </TouchableOpacity>
-              {showPickerStart && (
-                <DateTimePicker
-                  value={filterStart}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                  maximumDate={today}
-                  onChange={(_: DateTimePickerEvent, d?: Date) => {
-                    if (Platform.OS === 'android') setShowPickerStart(false);
-                    if (d) setFilterStart(d);
-                  }}
-                />
-              )}
+              <CalendarPickerModal
+                visible={showPickerStart}
+                value={filterStart}
+                maximumDate={today}
+                onSelect={d => { setShowPickerStart(false); setFilterStart(d); }}
+                onClose={() => setShowPickerStart(false)}
+              />
 
               <Text style={[styles.filterLabel, { marginTop: 12 }]}>SAMPAI TANGGAL</Text>
               <TouchableOpacity style={styles.filterInput} onPress={() => setShowPickerEnd(true)} activeOpacity={0.8}>
@@ -1082,24 +1316,19 @@ export default function LaporanScreen() {
                 <Text style={styles.filterInputText}>{fmtDisplayDate(filterEnd)}</Text>
                 <Ionicons name="chevron-down" size={14} color="#AAAAAA" />
               </TouchableOpacity>
-              {showPickerEnd && (
-                <DateTimePicker
-                  value={filterEnd}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                  maximumDate={today}
-                  minimumDate={filterStart}
-                  onChange={(_: DateTimePickerEvent, d?: Date) => {
-                    if (Platform.OS === 'android') setShowPickerEnd(false);
-                    if (d) setFilterEnd(d);
-                  }}
-                />
-              )}
+              <CalendarPickerModal
+                visible={showPickerEnd}
+                value={filterEnd}
+                minimumDate={filterStart}
+                maximumDate={today}
+                onSelect={d => { setShowPickerEnd(false); setFilterEnd(d); }}
+                onClose={() => setShowPickerEnd(false)}
+              />
 
               {/* Info range */}
               {filterStart <= filterEnd && (
                 <View style={styles.filterRangeInfo}>
-                  <Ionicons name="information-circle-outline" size={14} color={Colors.textTertiary} />
+                  <Ionicons name="information-circle-outline" size={14} color={colors.textTertiary} />
                   <Text style={styles.filterRangeText}>
                     {countRangeWorkdays(toDateStr(filterStart), toDateStr(filterEnd))} hari kerja dalam rentang ini
                   </Text>
@@ -1113,7 +1342,7 @@ export default function LaporanScreen() {
                 activeOpacity={0.85}
               >
                 <LinearGradient
-                  colors={[Colors.primary, Colors.primaryDark]}
+                  colors={[colors.primary, colors.primaryDark]}
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                   style={styles.filterBtnGrad}
                 >
@@ -1132,7 +1361,7 @@ export default function LaporanScreen() {
             {filterApplied && filterStats && (
               <>
                 <View style={styles.filterResultHeader}>
-                  <Ionicons name="stats-chart-outline" size={16} color={Colors.primary} />
+                  <Ionicons name="stats-chart-outline" size={16} color={colors.primary} />
                   <Text style={styles.filterResultTitle}>
                     {fmtDisplayDate(filterStart)} – {fmtDisplayDate(filterEnd)}
                   </Text>
@@ -1145,149 +1374,224 @@ export default function LaporanScreen() {
 
         <View style={{ height: 20 }} />
       </ScrollView>
+
+      {/* Bulanan: pilih bulan & tahun */}
+      <Modal transparent animationType="fade" visible={showBulanPicker} onRequestClose={() => setShowBulanPicker(false)}>
+        <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setShowBulanPicker(false)}>
+          <TouchableOpacity style={[styles.pickerCard, Shadow.md]} activeOpacity={1}>
+            <View style={styles.pickerHeaderRow}>
+              <TouchableOpacity style={styles.navBtn} onPress={() => setBulanPickerYear(y => y - 1)}>
+                <Ionicons name="chevron-back" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+              <Text style={styles.pickerHeaderTitle}>{bulanPickerYear}</Text>
+              <TouchableOpacity style={styles.navBtn} onPress={() => setBulanPickerYear(y => y + 1)}>
+                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.pickerMonthGrid}>
+              {BULAN_SINGKAT.map((nama, mi) => {
+                const terpilih = mi === bulanIdx && bulanPickerYear === tahunBulan;
+                return (
+                  <TouchableOpacity
+                    key={mi}
+                    style={[styles.pickerMonthItem, terpilih && styles.pickerMonthItemSelected]}
+                    activeOpacity={0.75}
+                    onPress={() => { setBulanIdx(mi); setTahunBulan(bulanPickerYear); setShowBulanPicker(false); }}
+                  >
+                    <Text style={[styles.pickerMonthText, terpilih && styles.pickerMonthTextSelected]}>{nama}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Tahunan: pilih tahun */}
+      <Modal transparent animationType="fade" visible={showTahunPicker} onRequestClose={() => setShowTahunPicker(false)}>
+        <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setShowTahunPicker(false)}>
+          <TouchableOpacity style={[styles.pickerCard, Shadow.md]} activeOpacity={1}>
+            <Text style={styles.pickerHeaderTitle}>Pilih Tahun</Text>
+            <ScrollView style={styles.pickerYearList} showsVerticalScrollIndicator={false}>
+              {Array.from({ length: 6 }, (_, i) => today.getFullYear() - i).map(y => {
+                const terpilih = y === tahun;
+                return (
+                  <TouchableOpacity
+                    key={y}
+                    style={[styles.pickerYearItem, terpilih && styles.pickerYearItemSelected]}
+                    activeOpacity={0.75}
+                    onPress={() => { setTahun(y); setShowTahunPicker(false); }}
+                  >
+                    <Text style={[styles.pickerYearText, terpilih && styles.pickerYearTextSelected]}>{y}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  root:        { flex: 1, backgroundColor: Colors.background },
+const getStyles = (colors: ColorPalette) => StyleSheet.create({
+  root:        { flex: 1, backgroundColor: colors.background },
 
   // Tab toggle
   togWrap: { paddingHorizontal: 14, paddingVertical: 10, gap: 8, flexDirection: 'row' },
   togBtn:  {
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 9, paddingHorizontal: 16,
-    borderRadius: 8, backgroundColor: Colors.background,
-    borderWidth: 1.5, borderColor: Colors.border,
+    borderRadius: 8, backgroundColor: colors.background,
+    borderWidth: 1.5, borderColor: colors.border,
   },
-  togBtnOn:  { backgroundColor: '#fff', borderColor: Colors.primary, ...Shadow.sm },
-  togText:   { fontSize: FontSize.xs, fontFamily: 'Poppins_500Medium', color: Colors.textTertiary },
-  togTextOn: { fontFamily: 'Poppins_700Bold', color: Colors.primary },
+  togBtnOn:  { backgroundColor: colors.white, borderColor: colors.primary, ...Shadow.sm },
+  togText:   { fontSize: FontSize.xs, fontFamily: 'Poppins_500Medium', color: colors.textTertiary },
+  togTextOn: { fontFamily: 'Poppins_700Bold', color: colors.primary },
 
   loadingRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 8 },
-  loadingText: { fontSize: FontSize.xs, color: Colors.textTertiary, fontFamily: 'Poppins_400Regular' },
-  errorRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 14, marginBottom: 8, backgroundColor: Colors.errorLight, borderRadius: 10, padding: 12 },
-  errorText:   { flex: 1, fontSize: FontSize.xs, color: Colors.error, fontFamily: 'Poppins_400Regular' },
-  retryText:   { fontSize: FontSize.xs, color: Colors.primary, fontFamily: 'Poppins_600SemiBold' },
+  loadingText: { fontSize: FontSize.xs, color: colors.textTertiary, fontFamily: 'Poppins_400Regular' },
+  errorRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 14, marginBottom: 8, backgroundColor: colors.errorLight, borderRadius: 10, padding: 12 },
+  errorText:   { flex: 1, fontSize: FontSize.xs, color: colors.error, fontFamily: 'Poppins_400Regular' },
+  retryText:   { fontSize: FontSize.xs, color: colors.primary, fontFamily: 'Poppins_600SemiBold' },
 
-  navRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', margin: 14, marginBottom: 12, borderRadius: 14, padding: 12 },
-  navBtn:   { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
-  navTitle: { fontSize: FontSize.md, fontFamily: 'Poppins_600SemiBold', color: Colors.textPrimary },
+  navRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.white, margin: 14, marginBottom: 12, borderRadius: 14, padding: 12 },
+  navBtn:   { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
+  navTitleBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 4 },
+  navTitle: { fontSize: FontSize.md, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary },
+
+  // Bulanan / Tahunan picker modals
+  pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 28 },
+  pickerCard: { backgroundColor: colors.white, borderRadius: Radius.xl, padding: Spacing.lg, width: '100%' },
+  pickerHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  pickerHeaderTitle: { fontSize: FontSize.md, fontFamily: 'Poppins_700Bold', color: colors.textPrimary, textAlign: 'center' },
+  pickerMonthGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  pickerMonthItem: { width: '30%', paddingVertical: 14, borderRadius: Radius.md, alignItems: 'center', backgroundColor: colors.background },
+  pickerMonthItemSelected: { backgroundColor: colors.primaryXLight, borderWidth: 1.5, borderColor: colors.primary },
+  pickerMonthText: { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary },
+  pickerMonthTextSelected: { color: colors.primary },
+  pickerYearList: { maxHeight: 280, marginTop: 12 },
+  pickerYearItem: { paddingVertical: 14, borderRadius: Radius.md, alignItems: 'center', backgroundColor: colors.background, marginBottom: 8 },
+  pickerYearItemSelected: { backgroundColor: colors.primaryXLight, borderWidth: 1.5, borderColor: colors.primary },
+  pickerYearText: { fontSize: FontSize.md, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary },
+  pickerYearTextSelected: { color: colors.primary },
 
   // Week strip (Harian)
-  weekStrip:              { flexDirection: 'row', backgroundColor: '#fff', marginHorizontal: 14, marginBottom: 12, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 4, justifyContent: 'space-around' },
+  weekStrip:              { flexDirection: 'row', backgroundColor: colors.white, marginHorizontal: 14, marginBottom: 12, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 4, justifyContent: 'space-around' },
   weekDay:                { alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 6, borderRadius: 10, minWidth: 36 },
-  weekDaySelected:        { backgroundColor: Colors.primary },
-  weekDayLabel:           { fontSize: 10, fontFamily: 'Poppins_500Medium', color: Colors.textTertiary },
+  weekDaySelected:        { backgroundColor: colors.primary },
+  weekDayLabel:           { fontSize: 10, fontFamily: 'Poppins_500Medium', color: colors.textTertiary },
   weekDayLabelSelected:   { color: '#fff', fontFamily: 'Poppins_700Bold' },
-  weekDayNum:             { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: Colors.textPrimary },
+  weekDayNum:             { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary },
   weekDayNumSelected:     { color: '#fff' },
   weekDot:                { width: 6, height: 6, borderRadius: 3 },
 
   // Harian detail card
-  hariCard:        { backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 14, marginBottom: 12, padding: 18, borderLeftWidth: 5, ...Shadow.sm },
+  hariCard:        { backgroundColor: colors.white, borderRadius: 16, marginHorizontal: 14, marginBottom: 12, padding: 18, borderLeftWidth: 5, ...Shadow.sm },
   hariStatusBadge: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 12, padding: 14, marginBottom: 14 },
   hariStatusText:  { fontSize: FontSize.lg, fontFamily: 'Poppins_700Bold' },
-  hariRow:         { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: Colors.background },
+  hariRow:         { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: colors.background },
   hariRowLeft:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  hariRowLabel:    { fontSize: FontSize.sm, color: Colors.textSecondary, fontFamily: 'Poppins_400Regular' },
+  hariRowLabel:    { fontSize: FontSize.sm, color: colors.textSecondary, fontFamily: 'Poppins_400Regular' },
+  hariRowRight:    { alignItems: 'flex-end', gap: 1 },
   hariRowVal:      { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold' },
+  hariRowSub:      { fontSize: FontSize.xs - 1, fontFamily: 'Poppins_500Medium' },
   hariEmpty:       { alignItems: 'center', paddingVertical: 20, gap: 10 },
-  hariEmptyText:   { fontSize: FontSize.sm, color: Colors.textTertiary, fontFamily: 'Poppins_400Regular' },
+  hariEmptyText:   { fontSize: FontSize.sm, color: colors.textTertiary, fontFamily: 'Poppins_400Regular' },
 
   // Harian monthly score card
-  skorBulanCard:   { backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 14, marginBottom: 12, padding: 16 },
+  skorBulanCard:   { backgroundColor: colors.white, borderRadius: 16, marginHorizontal: 14, marginBottom: 12, padding: 16 },
   skorBulanHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  skorBulanTitle:  { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: Colors.textPrimary, flex: 1 },
-  skorBulanPersen: { fontSize: FontSize.sm, fontFamily: 'Poppins_700Bold', color: Colors.primary },
-  skorBulanBarWrap:{ backgroundColor: Colors.background, borderRadius: 20, height: 8, overflow: 'hidden', marginBottom: 10 },
-  skorBulanBar:    { height: 8, borderRadius: 20, backgroundColor: Colors.primary },
+  skorBulanTitle:  { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary, flex: 1 },
+  skorBulanPersen: { fontSize: FontSize.sm, fontFamily: 'Poppins_700Bold', color: colors.primary },
+  skorBulanBarWrap:{ backgroundColor: colors.background, borderRadius: 20, height: 8, overflow: 'hidden', marginBottom: 10 },
+  skorBulanBar:    { height: 8, borderRadius: 20, backgroundColor: colors.primary },
   skorBulanFooter: { flexDirection: 'row', justifyContent: 'space-between' },
-  skorBulanSub:    { fontSize: FontSize.xs - 1, color: Colors.textTertiary, fontFamily: 'Poppins_400Regular' },
+  skorBulanSub:    { fontSize: FontSize.xs - 1, color: colors.textTertiary, fontFamily: 'Poppins_400Regular' },
 
   // Stats grid (shared)
   statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 14, marginBottom: 12 },
-  statCard: { width: '47%', backgroundColor: '#fff', borderRadius: 16, padding: 16, gap: 4 },
+  statCard: { width: '47%', backgroundColor: colors.white, borderRadius: 16, padding: 16, gap: 4 },
   statNum:  { fontSize: FontSize.xxl, fontFamily: 'Poppins_700Bold' },
-  statLabel:{ fontSize: FontSize.xs - 1, color: Colors.textTertiary, fontFamily: 'Poppins_400Regular' },
+  statLabel:{ fontSize: FontSize.xs - 1, color: colors.textTertiary, fontFamily: 'Poppins_400Regular' },
 
   // Chart card (shared)
-  chartCard:  { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginHorizontal: 14, marginBottom: 12 },
-  chartTitle: { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: Colors.textPrimary, marginBottom: 8 },
-  rateNum:    { fontSize: FontSize.xxxl, fontFamily: 'Poppins_700Bold', color: Colors.statusHadir, textAlign: 'center' },
-  rateSub:    { fontSize: FontSize.xs - 1, color: Colors.textTertiary, textAlign: 'center', marginBottom: 10, fontFamily: 'Poppins_400Regular' },
-  progWrap:   { backgroundColor: Colors.background, borderRadius: 20, height: 10, overflow: 'hidden', marginBottom: 6 },
-  progBar:    { height: '100%', borderRadius: 20, backgroundColor: Colors.primary },
+  chartCard:  { backgroundColor: colors.white, borderRadius: 16, padding: 16, marginHorizontal: 14, marginBottom: 12 },
+  chartTitle: { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary, marginBottom: 8 },
+  rateNum:    { fontSize: FontSize.xxxl, fontFamily: 'Poppins_700Bold', color: colors.statusHadir, textAlign: 'center' },
+  rateSub:    { fontSize: FontSize.xs - 1, color: colors.textTertiary, textAlign: 'center', marginBottom: 10, fontFamily: 'Poppins_400Regular' },
+  progWrap:   { backgroundColor: colors.background, borderRadius: 20, height: 10, overflow: 'hidden', marginBottom: 6 },
+  progBar:    { height: '100%', borderRadius: 20, backgroundColor: colors.primary },
   legend:     { flexDirection: 'row', gap: 14, marginTop: 12 },
   lgd:        { flexDirection: 'row', alignItems: 'center', gap: 5 },
   ldot:       { width: 8, height: 8, borderRadius: 4 },
-  lgdText:    { fontSize: FontSize.xs - 1, color: Colors.textSecondary, fontFamily: 'Poppins_400Regular' },
+  lgdText:    { fontSize: FontSize.xs - 1, color: colors.textSecondary, fontFamily: 'Poppins_400Regular' },
 
-  emptyBox:  { backgroundColor: '#fff', borderRadius: 14, padding: 30, alignItems: 'center', gap: 10, marginBottom: 10 },
-  emptyText: { fontSize: FontSize.sm, color: Colors.textTertiary, fontFamily: 'Poppins_400Regular' },
+  emptyBox:  { backgroundColor: colors.white, borderRadius: 14, padding: 30, alignItems: 'center', gap: 10, marginBottom: 10 },
+  emptyText: { fontSize: FontSize.sm, color: colors.textTertiary, fontFamily: 'Poppins_400Regular' },
 
   // Rekap list (shared)
   rekapSection: { paddingHorizontal: 14 },
-  rekapTitle:   { fontSize: FontSize.md, fontFamily: 'Poppins_600SemiBold', color: Colors.textPrimary, marginBottom: 10 },
-  rekapItem:    { backgroundColor: '#fff', borderRadius: 14, padding: 14, flexDirection: 'row', gap: 12, alignItems: 'center', marginBottom: 10 },
-  rekapDate:    { width: 44, height: 44, backgroundColor: Colors.primaryXLight, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  rekapDay:     { fontSize: 17, fontFamily: 'Poppins_700Bold', color: Colors.primary, lineHeight: 20 },
-  rekapMon:     { fontSize: 9, color: Colors.primary, textTransform: 'uppercase', fontFamily: 'Poppins_500Medium' },
+  rekapTitle:   { fontSize: FontSize.md, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary, marginBottom: 10 },
+  rekapItem:    { backgroundColor: colors.white, borderRadius: 14, padding: 14, flexDirection: 'row', gap: 12, alignItems: 'center', marginBottom: 10 },
+  rekapDate:    { width: 44, height: 44, backgroundColor: colors.primaryXLight, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  rekapDay:     { fontSize: 17, fontFamily: 'Poppins_700Bold', color: colors.primary, lineHeight: 20 },
+  rekapMon:     { fontSize: 9, color: colors.primary, textTransform: 'uppercase', fontFamily: 'Poppins_500Medium' },
   rekapInfo:    { flex: 1 },
-  rekapHari:    { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: Colors.textPrimary },
+  rekapHari:    { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary },
   rekapChips:   { flexDirection: 'row', gap: 6, marginTop: 4, flexWrap: 'wrap' },
   rekapChip:    { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 20 },
   rekapChipText:{ fontSize: FontSize.xs - 2, fontFamily: 'Poppins_500Medium' },
 
   // Tahunan
-  tahunSummary:     { backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 14, marginBottom: 12, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 16 },
+  tahunSummary:     { backgroundColor: colors.white, borderRadius: 16, marginHorizontal: 14, marginBottom: 12, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 16 },
   tahunSummaryLeft: { flex: 1, alignItems: 'center' },
-  tahunLabel:       { fontSize: FontSize.xs - 1, color: Colors.textTertiary, fontFamily: 'Poppins_400Regular' },
-  tahunPersen:      { fontSize: FontSize.xxxl, fontFamily: 'Poppins_700Bold', color: Colors.primary },
-  tahunSub:         { fontSize: FontSize.xs - 2, color: Colors.textTertiary, fontFamily: 'Poppins_400Regular' },
+  tahunLabel:       { fontSize: FontSize.xs - 1, color: colors.textTertiary, fontFamily: 'Poppins_400Regular' },
+  tahunPersen:      { fontSize: FontSize.xxxl, fontFamily: 'Poppins_700Bold', color: colors.primary },
+  tahunSub:         { fontSize: FontSize.xs - 2, color: colors.textTertiary, fontFamily: 'Poppins_400Regular' },
   tahunRingkasan:   { flex: 1, gap: 8 },
   tahunRingRow:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
   tahunRingVal:     { fontSize: FontSize.lg, fontFamily: 'Poppins_700Bold', width: 36 },
-  tahunRingLabel:   { fontSize: FontSize.xs - 1, color: Colors.textSecondary, fontFamily: 'Poppins_400Regular' },
+  tahunRingLabel:   { fontSize: FontSize.xs - 1, color: colors.textSecondary, fontFamily: 'Poppins_400Regular' },
 
   bulanGrid:         { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 14 },
-  bulanCard:         { width: '30%', backgroundColor: '#fff', borderRadius: 14, padding: 12, alignItems: 'center' },
+  bulanCard:         { width: '30%', backgroundColor: colors.white, borderRadius: 14, padding: 12, alignItems: 'center' },
   bulanCardInaktif:  { opacity: 0.4 },
-  bulanCardTerpilih: { borderWidth: 2, borderColor: Colors.primary, backgroundColor: Colors.primaryXLight },
-  bulanNama:         { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: Colors.textPrimary, marginBottom: 4 },
+  bulanCardTerpilih: { borderWidth: 2, borderColor: colors.primary, backgroundColor: colors.primaryXLight },
+  bulanNama:         { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary, marginBottom: 4 },
   bulanPersen:       { fontSize: FontSize.md, fontFamily: 'Poppins_700Bold' },
-  bulanProgWrap:     { width: '100%', height: 5, backgroundColor: Colors.background, borderRadius: 10, overflow: 'hidden', marginVertical: 5 },
+  bulanProgWrap:     { width: '100%', height: 5, backgroundColor: colors.background, borderRadius: 10, overflow: 'hidden', marginVertical: 5 },
   bulanProgBar:      { height: '100%', borderRadius: 10 },
-  bulanDetail:       { fontSize: FontSize.xs - 2, color: Colors.textTertiary, fontFamily: 'Poppins_400Regular' },
-  bulanBelum:        { fontSize: FontSize.lg, color: Colors.textHint },
+  bulanDetail:       { fontSize: FontSize.xs - 2, color: colors.textTertiary, fontFamily: 'Poppins_400Regular' },
+  bulanBelum:        { fontSize: FontSize.lg, color: colors.textHint },
 
-  bulanDetailPanel:  { backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 14, marginTop: 4, marginBottom: 4, padding: 16 },
-  bulanDetailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: Colors.background },
-  bulanDetailTitle:  { fontSize: FontSize.md, fontFamily: 'Poppins_700Bold', color: Colors.textPrimary },
+  bulanDetailPanel:  { backgroundColor: colors.white, borderRadius: 16, marginHorizontal: 14, marginTop: 4, marginBottom: 4, padding: 16 },
+  bulanDetailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: colors.background },
+  bulanDetailTitle:  { fontSize: FontSize.md, fontFamily: 'Poppins_700Bold', color: colors.textPrimary },
   bulanDetailGrid:   { gap: 2 },
-  bulanDetailRow:    { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.background },
-  bulanDetailLabel:  { flex: 1, fontSize: FontSize.sm, fontFamily: 'Poppins_400Regular', color: Colors.textSecondary },
+  bulanDetailRow:    { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.background },
+  bulanDetailLabel:  { flex: 1, fontSize: FontSize.sm, fontFamily: 'Poppins_400Regular', color: colors.textSecondary },
   bulanDetailVal:    { fontSize: FontSize.sm, fontFamily: 'Poppins_700Bold' },
 
   // Kustom filter
   filterCard: {
-    backgroundColor: '#fff', borderRadius: 16,
+    backgroundColor: colors.white, borderRadius: 16,
     marginHorizontal: 14, marginBottom: 12, padding: 18,
   },
   filterCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
-  filterCardTitle:  { fontSize: FontSize.md, fontFamily: 'Poppins_700Bold', color: Colors.textPrimary },
-  filterLabel:      { fontSize: 11, fontFamily: 'Poppins_600SemiBold', color: Colors.textSecondary, letterSpacing: 0.5, marginBottom: 8 },
+  filterCardTitle:  { fontSize: FontSize.md, fontFamily: 'Poppins_700Bold', color: colors.textPrimary },
+  filterLabel:      { fontSize: 11, fontFamily: 'Poppins_600SemiBold', color: colors.textSecondary, letterSpacing: 0.5, marginBottom: 8 },
   filterInput:      {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.background, borderRadius: Radius.md,
-    borderWidth: 1.5, borderColor: Colors.border,
+    backgroundColor: colors.background, borderRadius: Radius.md,
+    borderWidth: 1.5, borderColor: colors.border,
     paddingHorizontal: 12, height: 48,
   },
-  filterInputText:  { flex: 1, fontSize: FontSize.sm, fontFamily: 'Poppins_400Regular', color: Colors.textPrimary },
+  filterInputText:  { flex: 1, fontSize: FontSize.sm, fontFamily: 'Poppins_400Regular', color: colors.textPrimary },
   filterRangeInfo:  { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, marginBottom: 4 },
-  filterRangeText:  { fontSize: FontSize.xs - 1, color: Colors.textTertiary, fontFamily: 'Poppins_400Regular' },
+  filterRangeText:  { fontSize: FontSize.xs - 1, color: colors.textTertiary, fontFamily: 'Poppins_400Regular' },
   filterBtn:        { marginTop: 16, borderRadius: Radius.md, overflow: 'hidden' },
   filterBtnDisabled:{ opacity: 0.4 },
   filterBtnGrad:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14 },
@@ -1299,17 +1603,17 @@ const styles = StyleSheet.create({
   },
   filterResultTitle: {
     fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold',
-    color: Colors.textSecondary, flex: 1,
+    color: colors.textSecondary, flex: 1,
   },
 });
 
-const chartStyles = StyleSheet.create({
+const getChartStyles = (colors: ColorPalette) => StyleSheet.create({
   chartContainer: { flexDirection: 'row', alignItems: 'flex-end', gap: 6, paddingBottom: 4 },
   barGroup:   { flex: 1, alignItems: 'center', gap: 5, position: 'relative' },
-  barTrack:   { width: '80%', backgroundColor: Colors.background, borderRadius: 6, overflow: 'hidden', justifyContent: 'flex-end' },
+  barTrack:   { width: '80%', backgroundColor: colors.background, borderRadius: 6, overflow: 'hidden', justifyContent: 'flex-end' },
   barFill:    { width: '100%', borderRadius: 6 },
-  dayLabel:   { fontSize: 10, color: Colors.textTertiary, fontFamily: 'Poppins_500Medium' },
-  tooltip:    { position: 'absolute', top: -28, backgroundColor: Colors.textPrimary, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, zIndex: 10, alignItems: 'center' },
+  dayLabel:   { fontSize: 10, color: colors.textTertiary, fontFamily: 'Poppins_500Medium' },
+  tooltip:    { position: 'absolute', top: -28, backgroundColor: colors.textPrimary, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, zIndex: 10, alignItems: 'center' },
   tooltipText:  { color: '#fff', fontSize: 10, fontFamily: 'Poppins_700Bold' },
-  tooltipArrow: { position: 'absolute', bottom: -4, width: 8, height: 8, backgroundColor: Colors.textPrimary, transform: [{ rotate: '45deg' }], borderRadius: 1 },
+  tooltipArrow: { position: 'absolute', bottom: -4, width: 8, height: 8, backgroundColor: colors.textPrimary, transform: [{ rotate: '45deg' }], borderRadius: 1 },
 });

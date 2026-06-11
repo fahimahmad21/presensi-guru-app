@@ -9,7 +9,8 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Paths, File } from 'expo-file-system';
 import { PayrollItem } from '../../types';
-import Colors from '../../constants/Colors';
+import { ColorPalette } from '../../constants/Colors';
+import { useTheme } from '../../context/ThemeContext';
 import { FontSize, Radius, Shadow } from '../../constants/Theme';
 import AppHeader from '../../components/AppHeader';
 import HeaderActions from '../../components/HeaderActions';
@@ -100,6 +101,9 @@ Dicetak pada ${new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'n
 }
 
 export default function PayrollScreen() {
+  const { colors } = useTheme();
+  const styles = React.useMemo(() => getStyles(colors), [colors]);
+
   const [bulanIdx, setBulanIdx] = useState(5);
   const [unduhLoading, setUnduhLoading] = useState(false);
   const [alert, setAlert] = useState({ visible: false, type: 'success' as 'success' | 'error', title: '', msg: '' });
@@ -137,11 +141,11 @@ export default function PayrollScreen() {
         {/* NAVIGASI BULAN */}
         <View style={[styles.navRow, Shadow.sm]}>
           <TouchableOpacity style={styles.navBtn} onPress={() => setBulanIdx(i => (i - 1 + 12) % 12)}>
-            <Ionicons name="chevron-back" size={18} color={Colors.textSecondary} />
+            <Ionicons name="chevron-back" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
           <Text style={styles.navTitle}>{BULAN_PANJANG[bulanIdx]} 2025</Text>
           <TouchableOpacity style={styles.navBtn} onPress={() => setBulanIdx(i => (i + 1) % 12)}>
-            <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -194,10 +198,10 @@ export default function PayrollScreen() {
         <View style={[styles.bdownCard, Shadow.sm]}>
           <Text style={styles.bdownTitle}>Dasar Perhitungan</Text>
           {[
-            { icon: 'calendar-outline' as IonName, label: 'Hari Kerja', val: `${data.hariKerja} Hari`, color: Colors.textPrimary },
-            { icon: 'checkmark-circle-outline' as IonName, label: 'Hadir',     val: `${data.hariHadir} Hari`, color: Colors.success },
-            { icon: 'document-text-outline' as IonName,    label: 'Izin',      val: '2 Hari',              color: Colors.accentDark },
-            { icon: 'close-circle-outline' as IonName,     label: 'Alpha',     val: '1 Hari',              color: Colors.primary },
+            { icon: 'calendar-outline' as IonName, label: 'Hari Kerja', val: `${data.hariKerja} Hari`, color: colors.textPrimary },
+            { icon: 'checkmark-circle-outline' as IonName, label: 'Hadir',     val: `${data.hariHadir} Hari`, color: colors.success },
+            { icon: 'document-text-outline' as IonName,    label: 'Izin',      val: '2 Hari',              color: colors.accentDark },
+            { icon: 'close-circle-outline' as IonName,     label: 'Alpha',     val: '1 Hari',              color: colors.primary },
           ].map(row => (
             <View key={row.label} style={styles.brow}>
               <View style={styles.blbl}>
@@ -214,9 +218,9 @@ export default function PayrollScreen() {
         {/* TOMBOL UNDUH */}
         <TouchableOpacity style={styles.dlBtn} onPress={handleUnduhPDF} disabled={unduhLoading} activeOpacity={0.85}>
           {unduhLoading
-            ? <ActivityIndicator color={Colors.primary} />
+            ? <ActivityIndicator color={colors.primary} />
             : <>
-                <Ionicons name="download-outline" size={20} color={Colors.primary} />
+                <Ionicons name="download-outline" size={20} color={colors.primary} />
                 <Text style={styles.dlBtnText}>Unduh Slip Gaji PDF</Text>
               </>
           }
@@ -256,12 +260,12 @@ export default function PayrollScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.background },
+const getStyles = (colors: ColorPalette) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
 
-  navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', margin: 14, borderRadius: 14, padding: 12 },
-  navBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
-  navTitle: { fontSize: FontSize.md, fontFamily: 'Poppins_600SemiBold', color: Colors.textPrimary },
+  navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.white, margin: 14, borderRadius: 14, padding: 12 },
+  navBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
+  navTitle: { fontSize: FontSize.md, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary },
 
   payCard: { marginHorizontal: 14, borderRadius: 20, padding: 22, marginBottom: 14, overflow: 'hidden' },
   payMonth: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.8)', fontFamily: 'Poppins_400Regular', marginBottom: 4 },
@@ -272,32 +276,32 @@ const styles = StyleSheet.create({
   payBadgeText: { color: '#fff', fontSize: FontSize.xs - 1, fontFamily: 'Poppins_600SemiBold' },
   payDate: { color: 'rgba(255,255,255,0.75)', fontSize: FontSize.xs - 1, fontFamily: 'Poppins_400Regular' },
 
-  bdownCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginHorizontal: 14, marginBottom: 12 },
-  bdownTitle: { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: Colors.textPrimary, marginBottom: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  brow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.background },
+  bdownCard: { backgroundColor: colors.white, borderRadius: 16, padding: 16, marginHorizontal: 14, marginBottom: 12 },
+  bdownTitle: { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary, marginBottom: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
+  brow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.background },
   blbl: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  bico: { width: 32, height: 32, borderRadius: 8, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
-  blblText: { fontSize: FontSize.sm, color: Colors.textSecondary, fontFamily: 'Poppins_400Regular' },
+  bico: { width: 32, height: 32, borderRadius: 8, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
+  blblText: { fontSize: FontSize.sm, color: colors.textSecondary, fontFamily: 'Poppins_400Regular' },
   bamount: { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold' },
-  baPlus: { color: Colors.success },
-  baMinus: { color: Colors.primary },
-  bdiv: { borderTopWidth: 2, borderTopColor: Colors.border, borderStyle: 'dashed', marginVertical: 8 },
+  baPlus: { color: colors.success },
+  baMinus: { color: colors.primary },
+  bdiv: { borderTopWidth: 2, borderTopColor: colors.border, borderStyle: 'dashed', marginVertical: 8 },
   browTotal: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, paddingBottom: 4 },
-  blblTotal: { fontSize: FontSize.md, fontFamily: 'Poppins_700Bold', color: Colors.textPrimary },
-  bamountTotal: { fontSize: FontSize.lg, fontFamily: 'Poppins_700Bold', color: Colors.primary },
+  blblTotal: { fontSize: FontSize.md, fontFamily: 'Poppins_700Bold', color: colors.textPrimary },
+  bamountTotal: { fontSize: FontSize.lg, fontFamily: 'Poppins_700Bold', color: colors.primary },
   basisVal: { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold' },
 
-  dlBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#fff', borderWidth: 2, borderColor: Colors.primary, borderRadius: Radius.md, paddingVertical: 16, marginHorizontal: 14, marginBottom: 14 },
-  dlBtnText: { color: Colors.primary, fontSize: FontSize.md, fontFamily: 'Poppins_700Bold' },
+  dlBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.white, borderWidth: 2, borderColor: colors.primary, borderRadius: Radius.md, paddingVertical: 16, marginHorizontal: 14, marginBottom: 14 },
+  dlBtnText: { color: colors.primary, fontSize: FontSize.md, fontFamily: 'Poppins_700Bold' },
 
   histSection: { paddingHorizontal: 14 },
   histHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  histTitle: { fontSize: FontSize.md, fontFamily: 'Poppins_600SemiBold', color: Colors.textPrimary },
-  seeAll: { fontSize: FontSize.xs - 1, fontFamily: 'Poppins_500Medium', color: Colors.primary },
-  histItem: { backgroundColor: '#fff', borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
-  histIco: { width: 44, height: 44, backgroundColor: Colors.background, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  histTitle: { fontSize: FontSize.md, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary },
+  seeAll: { fontSize: FontSize.xs - 1, fontFamily: 'Poppins_500Medium', color: colors.primary },
+  histItem: { backgroundColor: colors.white, borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
+  histIco: { width: 44, height: 44, backgroundColor: colors.background, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   histInfo: { flex: 1 },
-  histMonth: { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: Colors.textPrimary },
-  histDate: { fontSize: FontSize.xs - 1, color: Colors.textTertiary, fontFamily: 'Poppins_400Regular' },
-  histAmt: { fontSize: FontSize.md, fontFamily: 'Poppins_700Bold', color: Colors.textPrimary },
+  histMonth: { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary },
+  histDate: { fontSize: FontSize.xs - 1, color: colors.textTertiary, fontFamily: 'Poppins_400Regular' },
+  histAmt: { fontSize: FontSize.md, fontFamily: 'Poppins_700Bold', color: colors.textPrimary },
 });

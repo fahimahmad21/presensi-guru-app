@@ -21,7 +21,8 @@ const WIN_H = Dimensions.get("window").height;
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../context/AuthContext";
-import Colors from "../constants/Colors";
+import { useTheme } from "../context/ThemeContext";
+import { ColorPalette } from "../constants/Colors";
 import { FontSize, Radius, Shadow } from "../constants/Theme";
 import AlertModal from "./AlertModal";
 import { AbsentInfo } from "../types";
@@ -44,6 +45,9 @@ interface UbahSandiProps {
 }
 
 function UbahKataSandiSheet({ visible, onClose, onSuccess }: UbahSandiProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
+
   const [passLama,       setPassLama]       = useState('');
   const [passBaru,       setPassBaru]       = useState('');
   const [passKonfirmasi, setPassKonfirmasi] = useState('');
@@ -106,7 +110,7 @@ function UbahKataSandiSheet({ visible, onClose, onSuccess }: UbahSandiProps) {
             <View style={styles.topBar}>
               <Text style={styles.topTitle}>Ubah Kata Sandi</Text>
               <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -118,11 +122,11 @@ function UbahKataSandiSheet({ visible, onClose, onSuccess }: UbahSandiProps) {
               {/* Kata Sandi Lama */}
               <Text style={styles.fieldLabel}>KATA SANDI LAMA</Text>
               <View style={[styles.inputWrap, error && !passLama && styles.inputError]}>
-                <Ionicons name="lock-closed-outline" size={18} color={Colors.textHint} style={styles.inputIcon} />
+                <Ionicons name="lock-closed-outline" size={18} color={colors.textHint} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="Masukkan kata sandi lama"
-                  placeholderTextColor={Colors.textHint}
+                  placeholderTextColor={colors.textHint}
                   value={passLama}
                   onChangeText={t => { setPassLama(t); setError(''); }}
                   secureTextEntry={!showLama}
@@ -130,18 +134,18 @@ function UbahKataSandiSheet({ visible, onClose, onSuccess }: UbahSandiProps) {
                   autoCorrect={false}
                 />
                 <TouchableOpacity onPress={() => setShowLama(v => !v)} style={styles.eyeBtn}>
-                  <Ionicons name={showLama ? 'eye-off-outline' : 'eye-outline'} size={18} color={Colors.textHint} />
+                  <Ionicons name={showLama ? 'eye-off-outline' : 'eye-outline'} size={18} color={colors.textHint} />
                 </TouchableOpacity>
               </View>
 
               {/* Kata Sandi Baru */}
               <Text style={styles.fieldLabel}>KATA SANDI BARU</Text>
               <View style={[styles.inputWrap, error && !passBaru && styles.inputError]}>
-                <Ionicons name="key-outline" size={18} color={Colors.textHint} style={styles.inputIcon} />
+                <Ionicons name="key-outline" size={18} color={colors.textHint} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="Minimal 6 karakter"
-                  placeholderTextColor={Colors.textHint}
+                  placeholderTextColor={colors.textHint}
                   value={passBaru}
                   onChangeText={t => { setPassBaru(t); setError(''); }}
                   secureTextEntry={!showBaru}
@@ -149,18 +153,18 @@ function UbahKataSandiSheet({ visible, onClose, onSuccess }: UbahSandiProps) {
                   autoCorrect={false}
                 />
                 <TouchableOpacity onPress={() => setShowBaru(v => !v)} style={styles.eyeBtn}>
-                  <Ionicons name={showBaru ? 'eye-off-outline' : 'eye-outline'} size={18} color={Colors.textHint} />
+                  <Ionicons name={showBaru ? 'eye-off-outline' : 'eye-outline'} size={18} color={colors.textHint} />
                 </TouchableOpacity>
               </View>
 
               {/* Konfirmasi */}
               <Text style={styles.fieldLabel}>KONFIRMASI KATA SANDI BARU</Text>
               <View style={[styles.inputWrap, error && passKonfirmasi && passBaru !== passKonfirmasi && styles.inputError]}>
-                <Ionicons name="checkmark-circle-outline" size={18} color={Colors.textHint} style={styles.inputIcon} />
+                <Ionicons name="checkmark-circle-outline" size={18} color={colors.textHint} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="Ulangi kata sandi baru"
-                  placeholderTextColor={Colors.textHint}
+                  placeholderTextColor={colors.textHint}
                   value={passKonfirmasi}
                   onChangeText={t => { setPassKonfirmasi(t); setError(''); }}
                   secureTextEntry={!showKonfirmasi}
@@ -168,14 +172,14 @@ function UbahKataSandiSheet({ visible, onClose, onSuccess }: UbahSandiProps) {
                   autoCorrect={false}
                 />
                 <TouchableOpacity onPress={() => setShowKonfirmasi(v => !v)} style={styles.eyeBtn}>
-                  <Ionicons name={showKonfirmasi ? 'eye-off-outline' : 'eye-outline'} size={18} color={Colors.textHint} />
+                  <Ionicons name={showKonfirmasi ? 'eye-off-outline' : 'eye-outline'} size={18} color={colors.textHint} />
                 </TouchableOpacity>
               </View>
 
               {/* Error */}
               {!!error && (
                 <View style={styles.errorWrap}>
-                  <Ionicons name="alert-circle-outline" size={15} color={Colors.error} />
+                  <Ionicons name="alert-circle-outline" size={15} color={colors.error} />
                   <Text style={styles.errorText}>{error}</Text>
                 </View>
               )}
@@ -220,6 +224,9 @@ const NOTIF_ROWS: {
 ];
 
 function PengaturanNotifikasiSheet({ visible, onClose }: PengaturanProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
+
   const [settings, setSettings] = useState<NotifSettings>({
     reminderHarian: true, statusIzin: true, peringatanTelat: true, peringatanNoOut: true,
   });
@@ -252,13 +259,13 @@ function PengaturanNotifikasiSheet({ visible, onClose }: PengaturanProps) {
           <View style={styles.topBar}>
             <Text style={styles.topTitle}>Pengaturan Notifikasi</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
           {loading ? (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-              <ActivityIndicator color={Colors.primary} />
+              <ActivityIndicator color={colors.primary} />
             </View>
           ) : (
             <ScrollView
@@ -270,8 +277,8 @@ function PengaturanNotifikasiSheet({ visible, onClose }: PengaturanProps) {
                   key={row.key}
                   style={[styles.settingRow, idx === NOTIF_ROWS.length - 1 && styles.settingRowLast]}
                 >
-                  <View style={[styles.settingIconWrap, { backgroundColor: settings[row.key] ? Colors.primaryXLight : Colors.background }]}>
-                    <Ionicons name={row.icon} size={20} color={settings[row.key] ? Colors.primary : Colors.textHint} />
+                  <View style={[styles.settingIconWrap, { backgroundColor: settings[row.key] ? colors.primaryXLight : colors.background }]}>
+                    <Ionicons name={row.icon} size={20} color={settings[row.key] ? colors.primary : colors.textHint} />
                   </View>
                   <View style={styles.settingText}>
                     <Text style={styles.settingLabel}>{row.label}</Text>
@@ -280,8 +287,8 @@ function PengaturanNotifikasiSheet({ visible, onClose }: PengaturanProps) {
                   <Switch
                     value={settings[row.key]}
                     onValueChange={v => handleToggle(row.key, v)}
-                    trackColor={{ false: Colors.border, true: Colors.primaryLight }}
-                    thumbColor={settings[row.key] ? Colors.primary : '#f4f3f4'}
+                    trackColor={{ false: colors.border, true: colors.primaryLight }}
+                    thumbColor={settings[row.key] ? colors.primary : '#f4f3f4'}
                   />
                 </View>
               ))}
@@ -322,20 +329,24 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
   },
 ];
 
-const KONTAK_ITEMS: {
+function getKontakItems(colors: ColorPalette, isDark: boolean): {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   nilai: string;
   color: string;
   bg: string;
   scheme: string;
-}[] = [
-  { icon: 'logo-whatsapp', label: 'WhatsApp Admin',  nilai: '0812-0000-0000', color: '#25D366', bg: '#E8F8EE', scheme: 'whatsapp://send?phone=628120000000' },
-  { icon: 'call-outline',  label: 'Telepon Sekolah', nilai: '(021) 000-0000',  color: Colors.primary, bg: Colors.primaryXLight, scheme: 'tel:0210000000' },
-  { icon: 'mail-outline',  label: 'Email Admin',     nilai: 'admin@bintangjuara.sch.id', color: Colors.accentDark, bg: Colors.accentLight, scheme: 'mailto:admin@bintangjuara.sch.id' },
-];
+}[] {
+  return [
+    { icon: 'logo-whatsapp', label: 'WhatsApp Admin',  nilai: '0812-0000-0000', color: isDark ? '#66BB6A' : '#25D366', bg: isDark ? '#1B3320' : '#E8F8EE', scheme: 'whatsapp://send?phone=628120000000' },
+    { icon: 'call-outline',  label: 'Telepon Sekolah', nilai: '(021) 000-0000',  color: colors.primary, bg: colors.primaryXLight, scheme: 'tel:0210000000' },
+    { icon: 'mail-outline',  label: 'Email Admin',     nilai: 'admin@bintangjuara.sch.id', color: colors.accentDark, bg: colors.accentLight, scheme: 'mailto:admin@bintangjuara.sch.id' },
+  ];
+}
 
 function FaqItem({ q, a }: { q: string; a: string }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
   const [open, setOpen] = useState(false);
   return (
     <TouchableOpacity
@@ -348,7 +359,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
         <Ionicons
           name={open ? 'chevron-up' : 'chevron-down'}
           size={16}
-          color={Colors.textHint}
+          color={colors.textHint}
         />
       </View>
       {open && <Text style={styles.faqA}>{a}</Text>}
@@ -357,6 +368,9 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 }
 
 function BantuanSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
+  const KONTAK_ITEMS = useMemo(() => getKontakItems(colors, isDark), [colors, isDark]);
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
@@ -367,7 +381,7 @@ function BantuanSheet({ visible, onClose }: { visible: boolean; onClose: () => v
           <View style={styles.topBar}>
             <Text style={styles.topTitle}>Bantuan</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -378,7 +392,7 @@ function BantuanSheet({ visible, onClose }: { visible: boolean; onClose: () => v
             {/* FAQ */}
             <View style={styles.bantuanSection}>
               <View style={styles.bantuanSectionHeader}>
-                <Ionicons name="help-circle" size={18} color={Colors.primary} />
+                <Ionicons name="help-circle" size={18} color={colors.primary} />
                 <Text style={styles.bantuanSectionTitle}>Pertanyaan Umum</Text>
               </View>
               <View style={[styles.bantuanCard, Shadow.sm]}>
@@ -393,7 +407,7 @@ function BantuanSheet({ visible, onClose }: { visible: boolean; onClose: () => v
             {/* Kontak */}
             <View style={styles.bantuanSection}>
               <View style={styles.bantuanSectionHeader}>
-                <Ionicons name="call" size={18} color={Colors.primary} />
+                <Ionicons name="call" size={18} color={colors.primary} />
                 <Text style={styles.bantuanSectionTitle}>Hubungi Admin Sekolah</Text>
               </View>
               <View style={[styles.bantuanCard, Shadow.sm]}>
@@ -411,7 +425,7 @@ function BantuanSheet({ visible, onClose }: { visible: boolean; onClose: () => v
                       <Text style={styles.kontakLabel}>{item.label}</Text>
                       <Text style={[styles.kontakNilai, { color: item.color }]}>{item.nilai}</Text>
                     </View>
-                    <Ionicons name="open-outline" size={15} color={Colors.textHint} />
+                    <Ionicons name="open-outline" size={15} color={colors.textHint} />
                   </TouchableOpacity>
                 ))}
               </View>
@@ -440,6 +454,8 @@ interface Props {
 
 export default function ProfileModal({ visible, onClose, onLogout }: Props) {
   const { user, updateFoto } = useAuth();
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
 
   const [absentInfo,      setAbsentInfo]      = useState<AbsentInfo | null>(null);
   const [dialCode,        setDialCode]        = useState<string>('');
@@ -543,7 +559,7 @@ export default function ProfileModal({ visible, onClose, onLogout }: Props) {
             <View style={styles.topBar}>
               <Text style={styles.topTitle}>Profil Saya</Text>
               <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -578,7 +594,7 @@ export default function ProfileModal({ visible, onClose, onLogout }: Props) {
                 <Text style={styles.profileNama}>{user?.name ?? '-'}</Text>
                 <Text style={styles.profileEmail}>{user?.email || '-'}</Text>
                 <TouchableOpacity style={styles.gantiBtn} onPress={handlePilihFoto}>
-                  <Ionicons name="image-outline" size={15} color={Colors.primary} />
+                  <Ionicons name="image-outline" size={15} color={colors.primary} />
                   <Text style={styles.gantiBtnText}>Ganti Foto Profil</Text>
                 </TouchableOpacity>
               </View>
@@ -587,12 +603,12 @@ export default function ProfileModal({ visible, onClose, onLogout }: Props) {
               <View style={[styles.infoCard, Shadow.sm]}>
                 <View style={styles.infoCardTitleRow}>
                   <Text style={styles.infoCardTitle}>Informasi Akun</Text>
-                  {infoLoading && <ActivityIndicator size="small" color={Colors.primary} />}
+                  {infoLoading && <ActivityIndicator size="small" color={colors.primary} />}
                 </View>
 
                 <View style={styles.infoRow}>
                   <View style={styles.infoIconWrap}>
-                    <Ionicons name="mail-outline" size={18} color={Colors.primary} />
+                    <Ionicons name="mail-outline" size={18} color={colors.primary} />
                   </View>
                   <View style={styles.infoText}>
                     <Text style={styles.infoLabel}>Email</Text>
@@ -605,7 +621,7 @@ export default function ProfileModal({ visible, onClose, onLogout }: Props) {
                 {infoRows.map((row, idx) => (
                   <View key={row.label} style={[styles.infoRow, idx === infoRows.length - 1 && styles.infoRowLast]}>
                     <View style={styles.infoIconWrap}>
-                      <Ionicons name={row.icon} size={18} color={Colors.primary} />
+                      <Ionicons name={row.icon} size={18} color={colors.primary} />
                     </View>
                     <View style={styles.infoText}>
                       <Text style={styles.infoLabel}>{row.label}</Text>
@@ -625,10 +641,10 @@ export default function ProfileModal({ visible, onClose, onLogout }: Props) {
                   onPress={() => setShowUbahSandi(true)}
                 >
                   <View style={styles.menuIconWrap}>
-                    <Ionicons name="lock-closed-outline" size={20} color={Colors.primary} />
+                    <Ionicons name="lock-closed-outline" size={20} color={colors.primary} />
                   </View>
                   <Text style={styles.menuLabel}>Ubah Kata Sandi</Text>
-                  <Ionicons name="chevron-forward" size={16} color={Colors.textHint} />
+                  <Ionicons name="chevron-forward" size={16} color={colors.textHint} />
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -637,10 +653,10 @@ export default function ProfileModal({ visible, onClose, onLogout }: Props) {
                   onPress={() => setShowPengaturanNotif(true)}
                 >
                   <View style={styles.menuIconWrap}>
-                    <Ionicons name="notifications-outline" size={20} color={Colors.primary} />
+                    <Ionicons name="notifications-outline" size={20} color={colors.primary} />
                   </View>
                   <Text style={styles.menuLabel}>Pengaturan Notifikasi</Text>
-                  <Ionicons name="chevron-forward" size={16} color={Colors.textHint} />
+                  <Ionicons name="chevron-forward" size={16} color={colors.textHint} />
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -649,11 +665,24 @@ export default function ProfileModal({ visible, onClose, onLogout }: Props) {
                   onPress={() => setShowBantuan(true)}
                 >
                   <View style={styles.menuIconWrap}>
-                    <Ionicons name="help-circle-outline" size={20} color={Colors.primary} />
+                    <Ionicons name="help-circle-outline" size={20} color={colors.primary} />
                   </View>
                   <Text style={styles.menuLabel}>Bantuan</Text>
-                  <Ionicons name="chevron-forward" size={16} color={Colors.textHint} />
+                  <Ionicons name="chevron-forward" size={16} color={colors.textHint} />
                 </TouchableOpacity>
+
+                <View style={[styles.menuRow, styles.menuRowLast]}>
+                  <View style={styles.menuIconWrap}>
+                    <Ionicons name={isDark ? 'moon' : 'moon-outline'} size={20} color={colors.primary} />
+                  </View>
+                  <Text style={styles.menuLabel}>Mode Gelap</Text>
+                  <Switch
+                    value={isDark}
+                    onValueChange={toggleTheme}
+                    trackColor={{ false: colors.border, true: colors.primaryLight }}
+                    thumbColor={isDark ? colors.primary : '#f4f3f4'}
+                  />
+                </View>
               </View>
             </ScrollView>
 
@@ -664,7 +693,7 @@ export default function ProfileModal({ visible, onClose, onLogout }: Props) {
                 onPress={() => setAlertKonfirmasi(true)}
                 activeOpacity={0.85}
               >
-                <Ionicons name="log-out-outline" size={22} color={Colors.error} />
+                <Ionicons name="log-out-outline" size={22} color={colors.error} />
                 <Text style={styles.logoutText}>Keluar dari Akun</Text>
               </TouchableOpacity>
             </View>
@@ -724,7 +753,7 @@ export default function ProfileModal({ visible, onClose, onLogout }: Props) {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ColorPalette) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
@@ -732,33 +761,33 @@ const styles = StyleSheet.create({
   },
   sheet: {
     height: WIN_H * 0.88,
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     ...Shadow.md,
   },
   sandiSheet: {
     height: WIN_H * 0.62,
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     ...Shadow.md,
   },
   handle: {
     width: 40, height: 4, borderRadius: 2,
-    backgroundColor: Colors.border,
+    backgroundColor: colors.border,
     alignSelf: 'center',
     marginTop: 12, marginBottom: 4,
   },
   topBar: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: Colors.background,
+    borderBottomWidth: 1, borderBottomColor: colors.background,
   },
-  topTitle: { fontSize: FontSize.lg, fontFamily: 'Poppins_700Bold', color: Colors.textPrimary },
+  topTitle: { fontSize: FontSize.lg, fontFamily: 'Poppins_700Bold', color: colors.textPrimary },
   closeBtn: {
     width: 34, height: 34, borderRadius: 17,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     alignItems: 'center', justifyContent: 'center',
   },
 
@@ -766,33 +795,33 @@ const styles = StyleSheet.create({
   sandiBody: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 32 },
   fieldLabel: {
     fontSize: FontSize.xs - 1, fontFamily: 'Poppins_600SemiBold',
-    color: Colors.textTertiary, letterSpacing: 0.5, marginBottom: 6,
+    color: colors.textTertiary, letterSpacing: 0.5, marginBottom: 6,
   },
   inputWrap: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     borderRadius: Radius.md,
-    borderWidth: 1.5, borderColor: Colors.border,
+    borderWidth: 1.5, borderColor: colors.border,
     paddingHorizontal: 14, marginBottom: 16, height: 52,
   },
-  inputError:  { borderColor: Colors.error },
+  inputError:  { borderColor: colors.error },
   inputIcon:   { marginRight: 10 },
   input: {
     flex: 1,
     fontSize: FontSize.sm, fontFamily: 'Poppins_400Regular',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   eyeBtn: { padding: 4 },
   errorWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: Colors.errorLight,
+    backgroundColor: colors.errorLight,
     borderRadius: Radius.sm,
     paddingHorizontal: 12, paddingVertical: 10,
     marginBottom: 16,
   },
-  errorText: { flex: 1, fontSize: FontSize.xs, fontFamily: 'Poppins_400Regular', color: Colors.error },
+  errorText: { flex: 1, fontSize: FontSize.xs, fontFamily: 'Poppins_400Regular', color: colors.error },
   simpanBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: Radius.md,
     paddingVertical: 15,
     alignItems: 'center', justifyContent: 'center',
@@ -804,97 +833,98 @@ const styles = StyleSheet.create({
   // Bantuan
   bantuanSheet: {
     height: WIN_H * 0.88,
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
     ...Shadow.md,
   },
   bantuanSection:       { paddingHorizontal: 16, marginBottom: 4, marginTop: 12 },
   bantuanSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  bantuanSectionTitle:  { fontSize: FontSize.sm, fontFamily: 'Poppins_700Bold', color: Colors.textPrimary },
-  bantuanCard:          { backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden' },
+  bantuanSectionTitle:  { fontSize: FontSize.sm, fontFamily: 'Poppins_700Bold', color: colors.textPrimary },
+  bantuanCard:          { backgroundColor: colors.white, borderRadius: 16, overflow: 'hidden' },
   faqItem:              { paddingVertical: 14, paddingHorizontal: 16 },
   faqHeader:            { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  faqQ:                 { flex: 1, fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: Colors.textPrimary },
-  faqA:                 { fontSize: FontSize.xs, fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, lineHeight: 20, marginTop: 8 },
-  faqDivider:           { borderBottomWidth: 1, borderBottomColor: Colors.background },
-  kontakRow:            { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: Colors.background },
+  faqQ:                 { flex: 1, fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary },
+  faqA:                 { fontSize: FontSize.xs, fontFamily: 'Poppins_400Regular', color: colors.textSecondary, lineHeight: 20, marginTop: 8 },
+  faqDivider:           { borderBottomWidth: 1, borderBottomColor: colors.background },
+  kontakRow:            { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: colors.background },
   kontakRowLast:        { borderBottomWidth: 0 },
   kontakIcon:           { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  kontakLabel:          { fontSize: FontSize.xs, fontFamily: 'Poppins_400Regular', color: Colors.textTertiary },
+  kontakLabel:          { fontSize: FontSize.xs, fontFamily: 'Poppins_400Regular', color: colors.textTertiary },
   kontakNilai:          { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold' },
   appInfoWrap:          { alignItems: 'center', paddingVertical: 24, gap: 4 },
-  appInfoName:          { fontSize: FontSize.md, fontFamily: 'Poppins_700Bold', color: Colors.textPrimary },
-  appInfoVer:           { fontSize: FontSize.xs, fontFamily: 'Poppins_400Regular', color: Colors.textTertiary },
-  appInfoPowered:       { fontSize: FontSize.xs - 1, fontFamily: 'Poppins_400Regular', color: Colors.textHint },
+  appInfoName:          { fontSize: FontSize.md, fontFamily: 'Poppins_700Bold', color: colors.textPrimary },
+  appInfoVer:           { fontSize: FontSize.xs, fontFamily: 'Poppins_400Regular', color: colors.textTertiary },
+  appInfoPowered:       { fontSize: FontSize.xs - 1, fontFamily: 'Poppins_400Regular', color: colors.textHint },
 
   // Pengaturan Notifikasi rows
   settingRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: Colors.background,
+    borderBottomWidth: 1, borderBottomColor: colors.background,
   },
   settingRowLast:  { borderBottomWidth: 0 },
   settingIconWrap: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   settingText:     { flex: 1 },
-  settingLabel:    { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: Colors.textPrimary },
-  settingDesc:     { fontSize: FontSize.xs - 1, fontFamily: 'Poppins_400Regular', color: Colors.textTertiary, marginTop: 2 },
+  settingLabel:    { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary },
+  settingDesc:     { fontSize: FontSize.xs - 1, fontFamily: 'Poppins_400Regular', color: colors.textTertiary, marginTop: 2 },
 
   // Profile top
   profileTop: { alignItems: 'center', paddingVertical: 24, paddingHorizontal: 16 },
   avatarWrap:   { position: 'relative', marginBottom: 14 },
   avatarCircle: {
     width: 96, height: 96, borderRadius: 48,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 3, borderColor: Colors.primaryLight,
+    borderWidth: 3, borderColor: colors.primaryLight,
   },
   avatarLoading: { justifyContent: 'center', alignItems: 'center' },
   avatarLetter:  { fontSize: 40, fontFamily: 'Poppins_700Bold', color: '#fff' },
   cameraBtn: {
     position: 'absolute', bottom: 2, right: 2,
     width: 30, height: 30, borderRadius: 15,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: '#fff',
+    borderWidth: 2, borderColor: colors.white,
   },
-  profileNama:  { fontSize: FontSize.lg, fontFamily: 'Poppins_700Bold', color: Colors.textPrimary, textAlign: 'center' },
-  profileEmail: { fontSize: FontSize.sm, fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, marginBottom: 12 },
+  profileNama:  { fontSize: FontSize.lg, fontFamily: 'Poppins_700Bold', color: colors.textPrimary, textAlign: 'center' },
+  profileEmail: { fontSize: FontSize.sm, fontFamily: 'Poppins_400Regular', color: colors.textSecondary, marginBottom: 12 },
   gantiBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: Colors.primaryXLight,
+    backgroundColor: colors.primaryXLight,
     paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
   },
-  gantiBtnText: { fontSize: FontSize.xs, fontFamily: 'Poppins_600SemiBold', color: Colors.primary },
+  gantiBtnText: { fontSize: FontSize.xs, fontFamily: 'Poppins_600SemiBold', color: colors.primary },
 
   // Info card
-  infoCard: { backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 16, marginBottom: 12, padding: 16 },
+  infoCard: { backgroundColor: colors.white, borderRadius: 16, marginHorizontal: 16, marginBottom: 12, padding: 16 },
   infoCardTitleRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     marginBottom: 12, paddingBottom: 10,
-    borderBottomWidth: 1, borderBottomColor: Colors.background,
+    borderBottomWidth: 1, borderBottomColor: colors.background,
   },
-  infoCardTitle:  { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: Colors.textPrimary },
-  infoRow:        { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.background },
+  infoCardTitle:  { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary },
+  infoRow:        { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.background },
   infoRowLast:    { borderBottomWidth: 0 },
-  infoIconWrap:   { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.primaryXLight, alignItems: 'center', justifyContent: 'center' },
+  infoIconWrap:   { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.primaryXLight, alignItems: 'center', justifyContent: 'center' },
   infoText:       { flex: 1 },
-  infoLabel:      { fontSize: FontSize.xs - 1, fontFamily: 'Poppins_400Regular', color: Colors.textTertiary },
-  infoValue:      { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: Colors.textPrimary },
-  infoValueEmpty: { color: Colors.textHint, fontFamily: 'Poppins_400Regular' },
+  infoLabel:      { fontSize: FontSize.xs - 1, fontFamily: 'Poppins_400Regular', color: colors.textTertiary },
+  infoValue:      { fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary },
+  infoValueEmpty: { color: colors.textHint, fontFamily: 'Poppins_400Regular' },
 
   // Menu card
-  menuCard: { backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 16, marginBottom: 4, overflow: 'hidden' },
-  menuRow:  { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: Colors.background },
-  menuIconWrap: { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
-  menuLabel:    { flex: 1, fontSize: FontSize.sm, fontFamily: 'Poppins_500Medium', color: Colors.textPrimary },
+  menuCard: { backgroundColor: colors.white, borderRadius: 16, marginHorizontal: 16, marginBottom: 4, overflow: 'hidden' },
+  menuRow:  { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: colors.background },
+  menuRowLast: { borderBottomWidth: 0 },
+  menuIconWrap: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
+  menuLabel:    { flex: 1, fontSize: FontSize.sm, fontFamily: 'Poppins_500Medium', color: colors.textPrimary },
 
   // Logout
-  logoutFooter: { borderTopWidth: 1, borderTopColor: Colors.background, paddingHorizontal: 16, paddingVertical: 14, paddingBottom: 28, backgroundColor: '#fff' },
+  logoutFooter: { borderTopWidth: 1, borderTopColor: colors.background, paddingHorizontal: 16, paddingVertical: 14, paddingBottom: 28, backgroundColor: colors.white },
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
     paddingVertical: 15, borderRadius: Radius.md,
-    borderWidth: 1.5, borderColor: Colors.errorLight,
-    backgroundColor: '#FFF5F5',
+    borderWidth: 1.5, borderColor: colors.errorLight,
+    backgroundColor: colors.errorLight,
   },
-  logoutText: { fontSize: FontSize.md, fontFamily: 'Poppins_600SemiBold', color: Colors.error },
+  logoutText: { fontSize: FontSize.md, fontFamily: 'Poppins_600SemiBold', color: colors.error },
 });

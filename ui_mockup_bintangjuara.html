@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UI Mockup — Presensi Guru SD Bintang Juara</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root {
+  --red:#1565C0; --red-d:#0D47A1; --red-l:#BBDEFB; --red-xl:#EBF3FD;
+  --gold:#FFC107; --gold-d:#FF8F00; --gold-l:#FFF8E1;
+  --white:#FFFFFF; --bg:#F5F5F5; --bg2:#FAFAFA;
+  --t1:#212121; --t2:#616161; --t3:#9E9E9E; --t4:#BDBDBD;
+  --border:#E0E0E0; --shadow:rgba(0,0,0,0.08);
+  --green:#2E7D32; --green-l:#E8F5E9;
+  --orange:#E65100; --orange-l:#FFF3E0;
+  --blue:#1565C0; --blue-l:#E3F2FD;
+  --purple:#6A1B9A; --purple-l:#F3E5F5;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Poppins',sans-serif;background:#1C2833;min-height:100vh;padding:28px 20px}
+.page-title{color:#ECF0F1;text-align:center;font-size:17px;font-weight:700;margin-bottom:4px}
+.page-sub{color:#7F8C8D;text-align:center;font-size:12px;margin-bottom:28px}
+.screens-row{display:flex;gap:20px;overflow-x:auto;padding-bottom:16px;align-items:flex-start}
+.screen-col{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:10px}
+.screen-lbl{color:#BDC3C7;font-size:11px;font-weight:600;text-align:center;letter-spacing:.5px;text-transform:uppercase}
+.phone{width:370px;height:800px;background:var(--white);border-radius:40px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6);border:8px solid #111;position:relative;flex-shrink:0}
+.ph{width:100%;height:100%;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;position:relative}
+.ph::-webkit-scrollbar{display:none}
+
+/* STATUS BAR */
+.sb{height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;font-size:11px;font-weight:600;position:sticky;top:0;z-index:99}
+.sb.r{background:var(--red);color:#fff}
+.sb.w{background:var(--white);color:var(--t1)}
+.sb-icons{display:flex;gap:5px;align-items:center}
+
+/* REUSABLE */
+.red-hdr{background:linear-gradient(135deg,var(--red-d),var(--red));padding:16px 18px 20px}
+.red-hdr h2{color:#fff;font-size:19px;font-weight:700}
+.red-hdr p{color:rgba(255,255,255,.75);font-size:12px;margin-top:3px}
+.back-row{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.back-circle{width:32px;height:32px;background:rgba(255,255,255,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px}
+.back-row h2{color:#fff;font-size:17px;font-weight:600}
+
+.flabel{font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:block}
+.finput{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:11px;font-family:'Poppins',sans-serif;font-size:13px;color:var(--t1);background:var(--bg);outline:none;pointer-events:none}
+.finput-icon{position:relative}
+.finput-icon .finput{padding-left:40px}
+.fi{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--t4);font-size:14px}
+.fgroup{margin-bottom:14px}
+
+.btn-r{width:100%;padding:14px;background:linear-gradient(135deg,var(--red),var(--red-d));color:#fff;border:none;border-radius:11px;font-family:'Poppins',sans-serif;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 4px 14px rgba(21,101,192,.35)}
+.btn-o{width:100%;padding:13px;background:var(--white);color:var(--red);border:1.5px solid var(--red);border-radius:11px;font-family:'Poppins',sans-serif;font-size:13px;font-weight:600;cursor:pointer}
+.sec-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.sec-title{font-size:13px;font-weight:600;color:var(--t1)}
+.see-all{font-size:11px;color:var(--red);font-weight:500}
+.chip{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:500}
+.chip-b{background:var(--blue-l);color:var(--blue)}
+.chip-g{background:var(--green-l);color:var(--green)}
+.chip-y{background:var(--gold-l);color:var(--gold-d)}
+.chip-r{background:var(--red-l);color:var(--red)}
+.chip-o{background:var(--orange-l);color:var(--orange)}
+
+/* BOTTOM NAV */
+.bnav{position:sticky;bottom:0;background:var(--white);border-top:1px solid var(--border);height:66px;display:flex;align-items:center;padding:0 6px;box-shadow:0 -3px 12px rgba(0,0,0,.07);z-index:98}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 2px;cursor:pointer}
+.ni i{font-size:20px;color:var(--t4)}
+.ni span{font-size:9px;color:var(--t4);font-weight:500}
+.ni.on i,.ni.on span{color:var(--red)}
+.ni.on span{font-weight:700}
+.ni-dot{width:4px;height:4px;background:var(--red);border-radius:50%;margin-top:1px}
+
+/* ========== SCREEN 1: LOGIN ========== */
+.login-hdr{background:linear-gradient(160deg,var(--red-d) 0%,var(--red) 55%,#90CAF9 100%);padding:36px 20px 56px;position:relative;overflow:hidden}
+.login-hdr::after{content:'';position:absolute;bottom:-24px;left:0;right:0;height:48px;background:var(--white);border-radius:50% 50% 0 0/100% 100% 0 0}
+.logo-box{width:72px;height:72px;background:var(--white);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 12px;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+.school-name{color:#fff;font-size:15px;font-weight:700;text-align:center}
+.school-sub{color:rgba(255,255,255,.8);font-size:11px;text-align:center;margin-top:3px}
+.login-body{padding:20px 20px 24px}
+.login-greeting h2{font-size:20px;font-weight:700;color:var(--t1)}
+.login-greeting p{font-size:12px;color:var(--t3);margin-top:3px;margin-bottom:20px}
+.forgot-link{text-align:right;margin-top:6px}
+.forgot-link a{font-size:11px;color:var(--red);font-weight:500;text-decoration:none}
+.login-foot{text-align:center;margin-top:24px;font-size:11px;color:var(--t4)}
+.login-foot span{color:var(--red);font-weight:600}
+
+/* ========== SCREEN 2: FORGOT ========== */
+.illus-circle{width:110px;height:110px;background:var(--red-l);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:48px}
+.forgot-txt{text-align:center;margin:16px 0 24px}
+.forgot-txt h3{font-size:17px;font-weight:700;color:var(--t1);margin-bottom:6px}
+.forgot-txt p{font-size:12px;color:var(--t3);line-height:1.6}
+
+/* ========== SCREEN 3: DASHBOARD ========== */
+.dash-hdr{background:linear-gradient(135deg,var(--red-d),var(--red) 60%,#90CAF9);padding:14px 18px 52px}
+.dash-top{display:flex;justify-content:space-between;align-items:flex-start}
+.user-greet h3{color:#fff;font-size:15px;font-weight:600}
+.user-greet p{color:rgba(255,255,255,.8);font-size:11px;margin-top:2px}
+.date-badge{display:inline-block;background:rgba(255,255,255,.2);color:#fff;font-size:10px;padding:3px 9px;border-radius:20px;margin-top:5px}
+.hdr-acts{display:flex;gap:7px}
+.hdr-btn{width:36px;height:36px;background:rgba(255,255,255,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;position:relative}
+.notif-dot{position:absolute;top:7px;right:7px;width:7px;height:7px;background:var(--gold);border-radius:50%;border:1.5px solid var(--red)}
+.avatar{width:36px;height:36px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;border:2px solid rgba(255,255,255,.4)}
+
+.dash-body{padding:0 14px}
+.atten-card{background:var(--white);border-radius:18px;padding:18px;box-shadow:0 6px 24px rgba(0,0,0,.1);margin-top:-38px;margin-bottom:14px}
+.atten-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.card-ttl{font-size:13px;font-weight:600;color:var(--t1)}
+.badge{font-size:10px;font-weight:600;padding:3px 10px;border-radius:20px}
+.badge-absent{background:var(--orange-l);color:var(--orange)}
+.badge-present{background:var(--green-l);color:var(--green)}
+.badge-late{background:var(--gold-l);color:var(--gold-d)}
+.times-row{display:flex;gap:12px;margin-bottom:16px}
+.time-box{flex:1;background:var(--bg);border-radius:10px;padding:10px;text-align:center}
+.time-lbl{font-size:10px;color:var(--t3);margin-bottom:3px}
+.time-val{font-size:18px;font-weight:700;color:var(--t1)}
+.time-val.empty{color:var(--t4)}
+.checkin-row{display:flex;gap:10px}
+.ci-btn{flex:1;padding:12px 10px;border-radius:10px;border:none;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px}
+.ci-btn.loc{background:linear-gradient(135deg,var(--red),var(--red-d));color:#fff;box-shadow:0 3px 10px rgba(21,101,192,.3)}
+.ci-btn.fp{background:linear-gradient(135deg,var(--gold),var(--gold-d));color:#fff;box-shadow:0 3px 10px rgba(255,193,7,.3)}
+
+.sumstrip{display:flex;gap:8px;margin-bottom:14px}
+.si{flex:1;background:var(--white);border-radius:12px;padding:10px 6px;text-align:center;box-shadow:0 2px 8px var(--shadow)}
+.si-num{font-size:20px;font-weight:700}
+.si-lbl{font-size:9px;color:var(--t3);margin-top:1px}
+
+.hist-list{display:flex;flex-direction:column;gap:9px;padding-bottom:74px}
+.hist-item{background:var(--white);border-radius:13px;padding:12px 14px;box-shadow:0 2px 8px var(--shadow);display:flex;gap:10px;align-items:center}
+.hdate{width:40px;height:40px;background:var(--red-l);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0}
+.hdate-d{font-size:15px;font-weight:700;color:var(--red);line-height:1}
+.hdate-m{font-size:8px;color:var(--red);text-transform:uppercase}
+.hinfo{flex:1}
+.hname{font-size:12px;font-weight:600;color:var(--t1)}
+.hmeta{display:flex;gap:5px;margin-top:3px;flex-wrap:wrap}
+.htime{text-align:right;flex-shrink:0}
+.ht-in{font-size:12px;font-weight:600;color:var(--green)}
+.ht-out{font-size:10px;color:var(--t3);margin-top:2px}
+
+/* ========== SCREEN 4: IZIN ========== */
+.type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+.type-chip{border:1.5px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer}
+.type-chip.sel{border-color:var(--red);background:var(--red-xl)}
+.tc-icon{font-size:20px;margin-bottom:3px}
+.tc-name{font-size:10px;font-weight:600;color:var(--t2)}
+.type-chip.sel .tc-name{color:var(--red)}
+.frow{display:flex;gap:10px}
+.frow .fgroup{flex:1}
+.ftextarea{width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:11px;font-family:'Poppins',sans-serif;font-size:12px;color:var(--t1);background:var(--bg);resize:none;height:72px;outline:none}
+.upload-box{border:2px dashed var(--border);border-radius:11px;padding:14px;text-align:center;cursor:pointer}
+.upload-box i{font-size:22px;color:var(--t4)}
+.upload-box p{font-size:11px;color:var(--t3);margin-top:5px}
+.izin-hist{padding:0 14px 74px}
+.izin-item{background:var(--white);border-radius:12px;padding:12px 14px;box-shadow:0 2px 8px var(--shadow);margin-bottom:9px;display:flex;align-items:center;gap:10px}
+.izin-ico{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.izin-ico.sk{background:#FCE4EC}
+.izin-ico.hr{background:var(--gold-l)}
+.izin-ico.dy{background:var(--blue-l)}
+.izin-ico.cd{background:var(--green-l)}
+.izin-det{flex:1}
+.izin-type{font-size:12px;font-weight:600;color:var(--t1)}
+.izin-date{font-size:10px;color:var(--t3);margin-top:2px}
+.istatus{font-size:10px;font-weight:600;padding:3px 9px;border-radius:20px}
+.is-ok{background:var(--green-l);color:var(--green)}
+.is-pend{background:var(--gold-l);color:var(--gold-d)}
+.is-rej{background:var(--red-l);color:var(--red)}
+
+/* ========== SCREEN 5: REPORT ========== */
+.tog-row{display:flex;background:var(--bg);border-radius:9px;padding:3px;margin:14px 14px 0}
+.tog-btn{flex:1;padding:7px;border:none;background:transparent;border-radius:7px;font-family:'Poppins',sans-serif;font-size:11px;font-weight:500;color:var(--t3);cursor:pointer}
+.tog-btn.on{background:var(--white);color:var(--red);font-weight:700;box-shadow:0 2px 6px var(--shadow)}
+.month-sel{display:flex;align-items:center;justify-content:center;gap:14px;padding:11px;background:var(--white);margin:10px 14px;border-radius:13px;box-shadow:0 2px 8px var(--shadow)}
+.mnav{width:28px;height:28px;background:var(--bg);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--t2);font-size:12px;cursor:pointer}
+.mname{font-size:14px;font-weight:600;color:var(--t1)}
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;padding:0 14px 10px}
+.stat-card{background:var(--white);border-radius:14px;padding:14px;box-shadow:0 2px 8px var(--shadow)}
+.sc-icon{font-size:22px;margin-bottom:6px}
+.sc-num{font-size:26px;font-weight:700;line-height:1}
+.sc-lbl{font-size:10px;color:var(--t3);margin-top:3px}
+.sc-green .sc-num{color:var(--green)}
+.sc-gold .sc-num{color:var(--gold-d)}
+.sc-red .sc-num{color:var(--red)}
+.sc-orange .sc-num{color:var(--orange)}
+.chart-card{background:var(--white);border-radius:14px;padding:14px;margin:0 14px 10px;box-shadow:0 2px 8px var(--shadow)}
+.chart-ttl{font-size:12px;font-weight:600;color:var(--t1);margin-bottom:12px}
+.prog-wrap{background:var(--bg);border-radius:20px;height:9px;overflow:hidden;margin-bottom:4px}
+.prog-bar{height:100%;border-radius:20px;background:linear-gradient(90deg,var(--green),#81C784)}
+.prog-lbl{font-size:10px;color:var(--t3)}
+.bar-chart{display:flex;align-items:flex-end;gap:5px;height:80px;margin-top:16px}
+.bg{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.bar{width:100%;border-radius:3px 3px 0 0}
+.bar-p{background:var(--green)}
+.bar-l{background:var(--gold)}
+.bar-lbl{font-size:8px;color:var(--t3)}
+.legend{display:flex;gap:12px;margin-top:10px}
+.lgd{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t2)}
+.ldot{width:7px;height:7px;border-radius:50%}
+
+/* ========== SCREEN 6: PAYROLL ========== */
+.pay-card{background:linear-gradient(135deg,var(--red-d),var(--red) 50%,#90CAF9);margin:0 14px 14px;border-radius:18px;padding:20px;color:#fff;position:relative;overflow:hidden}
+.pay-card::after{content:'';position:absolute;top:-36px;right:-36px;width:130px;height:130px;background:rgba(255,255,255,.08);border-radius:50%}
+.pay-month{font-size:11px;opacity:.8;margin-bottom:3px}
+.pay-amount{font-size:26px;font-weight:700;letter-spacing:-.5px}
+.pay-amount span{font-size:15px;font-weight:400}
+.pay-srow{display:flex;justify-content:space-between;align-items:center;margin-top:14px}
+.pay-badge{background:rgba(255,255,255,.2);color:#fff;font-size:10px;font-weight:600;padding:3px 10px;border-radius:20px}
+.pay-date{font-size:10px;opacity:.75}
+.bdown-card{background:var(--white);border-radius:14px;padding:14px;margin:0 14px 10px;box-shadow:0 2px 8px var(--shadow)}
+.bdown-ttl{font-size:12px;font-weight:600;color:var(--t1);margin-bottom:10px;padding-bottom:9px;border-bottom:1px solid var(--border)}
+.brow{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--bg)}
+.blbl{font-size:12px;color:var(--t2);display:flex;align-items:center;gap:7px}
+.bico{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px}
+.bamount{font-size:12px;font-weight:600}
+.ba-plus{color:var(--green)}
+.ba-minus{color:var(--red)}
+.bdiv{border-top:2px dashed var(--border);margin:7px 0}
+.brow-total{display:flex;justify-content:space-between;align-items:center;padding:9px 0 3px}
+.blbl-total{font-size:13px;font-weight:700;color:var(--t1)}
+.bamount-total{font-size:15px;font-weight:700;color:var(--red)}
+.dl-btn{display:flex;align-items:center;justify-content:center;gap:7px;background:var(--white);border:1.5px solid var(--red);color:var(--red);border-radius:11px;padding:13px;font-family:'Poppins',sans-serif;font-size:13px;font-weight:600;cursor:pointer;width:calc(100% - 28px);margin:0 14px 12px}
+.pay-hist-item{background:var(--white);border-radius:12px;padding:12px 14px;box-shadow:0 2px 8px var(--shadow);margin-bottom:9px;display:flex;align-items:center;gap:10px}
+.pay-ico{width:40px;height:40px;background:var(--red-l);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.phi{flex:1}
+.phi-month{font-size:12px;font-weight:600;color:var(--t1)}
+.phi-date{font-size:10px;color:var(--t3)}
+.phi-amt{font-size:13px;font-weight:700;color:var(--t1)}
+</style>
+</head>
+<body>
+
+<div class="page-title">SD Bintang Juara — Presensi Guru</div>
+<div class="page-sub">UI/UX Mockup · Android Mobile · Poppins · Bilingual ID/EN · White Background</div>
+
+<div class="screens-row">
+
+<!-- ==================== SCREEN 1: LOGIN ==================== -->
+<div class="screen-col">
+  <div class="screen-lbl">1 · Login</div>
+  <div class="phone"><div class="ph">
+    <div class="sb r"><span>9:41</span><div class="sb-icons"><i class="fas fa-signal"></i><i class="fas fa-wifi"></i><i class="fas fa-battery-full"></i></div></div>
+    <div class="login-hdr">
+      <div class="logo-box">⭐</div>
+      <div class="school-name">SD BINTANG JUARA</div>
+      <div class="school-sub">Sistem Presensi Guru · Teacher Attendance</div>
+    </div>
+    <div class="login-body">
+      <div class="login-greeting">
+        <h2>Selamat Datang 👋</h2>
+        <p>Welcome back! Sign in to continue.</p>
+      </div>
+      <div class="fgroup">
+        <label class="flabel">Email</label>
+        <div class="finput-icon"><i class="fas fa-envelope fi"></i>
+          <input class="finput" placeholder="guru@bintangjuara.sch.id">
+        </div>
+      </div>
+      <div class="fgroup">
+        <label class="flabel">Password / Kata Sandi</label>
+        <div class="finput-icon"><i class="fas fa-lock fi"></i>
+          <input class="finput" type="password" placeholder="••••••••">
+          <i class="fas fa-eye" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);color:var(--t4);font-size:14px"></i>
+        </div>
+        <div class="forgot-link"><a href="#">Lupa Password? / Forgot?</a></div>
+      </div>
+      <button class="btn-r"><i class="fas fa-sign-in-alt"></i> Masuk / Sign In</button>
+      <div class="login-foot">v1.0.0 · <span>SD Bintang Juara</span> · 2025</div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ==================== SCREEN 2: FORGOT PASSWORD ==================== -->
+<div class="screen-col">
+  <div class="screen-lbl">2 · Forgot Password</div>
+  <div class="phone"><div class="ph">
+    <div class="sb r"><span>9:41</span><div class="sb-icons"><i class="fas fa-signal"></i><i class="fas fa-wifi"></i><i class="fas fa-battery-full"></i></div></div>
+    <div class="red-hdr">
+      <div class="back-row">
+        <div class="back-circle"><i class="fas fa-arrow-left"></i></div>
+        <h2>Lupa Password</h2>
+      </div>
+    </div>
+    <div style="padding:24px 18px">
+      <div style="text-align:center;margin-bottom:20px"><div class="illus-circle">🔑</div></div>
+      <div class="forgot-txt">
+        <h3>Reset Password</h3>
+        <p>Masukkan email terdaftar Anda.<br>Enter your registered email. We'll send an OTP code.</p>
+      </div>
+      <div class="fgroup">
+        <label class="flabel">Email</label>
+        <div class="finput-icon"><i class="fas fa-envelope fi"></i>
+          <input class="finput" placeholder="guru@bintangjuara.sch.id">
+        </div>
+      </div>
+      <button class="btn-r" style="margin-bottom:10px"><i class="fas fa-paper-plane"></i> Kirim OTP / Send OTP</button>
+      <button class="btn-o">← Kembali / Back to Login</button>
+      <div style="height:40px;margin-top:24px;border:2px dashed var(--border);border-radius:11px;display:flex;align-items:center;justify-content:center">
+        <span style="font-size:11px;color:var(--t4)">OTP Input (6 digit) appears here</span>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ==================== SCREEN 3: DASHBOARD / ABSENSI ==================== -->
+<div class="screen-col">
+  <div class="screen-lbl">3 · Dashboard — Absensi</div>
+  <div class="phone"><div class="ph">
+    <div class="sb r"><span>9:41</span><div class="sb-icons"><i class="fas fa-signal"></i><i class="fas fa-wifi"></i><i class="fas fa-battery-full"></i></div></div>
+    <div class="dash-hdr">
+      <div class="dash-top">
+        <div class="user-greet">
+          <h3>Halo, Bu Sari! 👋</h3>
+          <p>Guru Kelas 4A · Class Teacher</p>
+          <span class="date-badge">📅 Selasa, 3 Jun 2025</span>
+        </div>
+        <div class="hdr-acts">
+          <div class="hdr-btn"><i class="fas fa-bell"></i><span class="notif-dot"></span></div>
+          <div class="avatar">S</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-body">
+      <div class="atten-card">
+        <div class="atten-card-top">
+          <span class="card-ttl">Presensi Hari Ini / Today</span>
+          <span class="badge badge-absent">Belum Hadir</span>
+        </div>
+        <div class="times-row">
+          <div class="time-box">
+            <div class="time-lbl">Masuk / Check-In</div>
+            <div class="time-val empty">--:--</div>
+          </div>
+          <div class="time-box">
+            <div class="time-lbl">Keluar / Check-Out</div>
+            <div class="time-val empty">--:--</div>
+          </div>
+        </div>
+        <div class="checkin-row">
+          <button class="ci-btn loc"><i class="fas fa-map-marker-alt"></i> Via Lokasi</button>
+          <button class="ci-btn fp"><i class="fas fa-fingerprint"></i> Fingerprint</button>
+        </div>
+      </div>
+
+      <div class="sumstrip">
+        <div class="si"><div class="si-num" style="color:var(--green)">18</div><div class="si-lbl">Hadir</div></div>
+        <div class="si"><div class="si-num" style="color:var(--gold-d)">2</div><div class="si-lbl">Izin</div></div>
+        <div class="si"><div class="si-num" style="color:var(--red)">1</div><div class="si-lbl">Alpha</div></div>
+        <div class="si"><div class="si-num" style="color:var(--purple)">3</div><div class="si-lbl">Terlambat</div></div>
+      </div>
+
+      <div class="sec-hdr"><span class="sec-title">Riwayat / History</span><span class="see-all">Lihat Semua</span></div>
+      <div class="hist-list">
+        <div class="hist-item">
+          <div class="hdate"><span class="hdate-d">02</span><span class="hdate-m">Jun</span></div>
+          <div class="hinfo">
+            <div class="hname">Sari Dewi, S.Pd.</div>
+            <div class="hmeta">
+              <span class="chip chip-b">Kelas 4A</span>
+              <span class="chip chip-g">Hadir</span>
+              <span class="chip chip-y">📍 Lokasi</span>
+            </div>
+          </div>
+          <div class="htime"><div class="ht-in">07:12</div><div class="ht-out">Out 14:30</div></div>
+        </div>
+        <div class="hist-item">
+          <div class="hdate"><span class="hdate-d">01</span><span class="hdate-m">Jun</span></div>
+          <div class="hinfo">
+            <div class="hname">Sari Dewi, S.Pd.</div>
+            <div class="hmeta">
+              <span class="chip chip-b">Kelas 4A</span>
+              <span class="chip chip-o">Terlambat</span>
+              <span class="chip chip-y">👆 Fingerprint</span>
+            </div>
+          </div>
+          <div class="htime"><div class="ht-in" style="color:var(--orange)">08:45</div><div class="ht-out">Out 14:30</div></div>
+        </div>
+        <div class="hist-item">
+          <div class="hdate" style="background:var(--gold-l)"><span class="hdate-d" style="color:var(--gold-d)">30</span><span class="hdate-m" style="color:var(--gold-d)">Mei</span></div>
+          <div class="hinfo">
+            <div class="hname">Sari Dewi, S.Pd.</div>
+            <div class="hmeta">
+              <span class="chip chip-b">Kelas 4A</span>
+              <span class="chip" style="background:var(--gold-l);color:var(--gold-d)">Izin Sakit</span>
+            </div>
+          </div>
+          <div class="htime"><div class="ht-in" style="color:var(--gold-d)">Izin</div><div class="ht-out">Full Day</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bnav">
+      <div class="ni on"><i class="fas fa-home"></i><span>Absensi</span><div class="ni-dot"></div></div>
+      <div class="ni"><i class="fas fa-file-alt"></i><span>Izin</span></div>
+      <div class="ni"><i class="fas fa-chart-bar"></i><span>Laporan</span></div>
+      <div class="ni"><i class="fas fa-money-bill-wave"></i><span>Payroll</span></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ==================== SCREEN 4: IZIN ==================== -->
+<div class="screen-col">
+  <div class="screen-lbl">4 · Izin / Permission</div>
+  <div class="phone"><div class="ph">
+    <div class="sb r"><span>9:41</span><div class="sb-icons"><i class="fas fa-signal"></i><i class="fas fa-wifi"></i><i class="fas fa-battery-full"></i></div></div>
+    <div class="red-hdr"><h2>Pengajuan Izin</h2><p>Leave / Permission Request</p></div>
+
+    <div style="padding:14px">
+      <div class="fgroup">
+        <label class="flabel">Jenis Izin / Leave Type</label>
+        <div class="type-grid">
+          <div class="type-chip sel"><div class="tc-icon">🕐</div><div class="tc-name">Jam / Hours</div></div>
+          <div class="type-chip"><div class="tc-icon">📅</div><div class="tc-name">Hari / Day</div></div>
+          <div class="type-chip"><div class="tc-icon">🌅</div><div class="tc-name">Pagi / Morning</div></div>
+          <div class="type-chip"><div class="tc-icon">🌇</div><div class="tc-name">Sore / Afternoon</div></div>
+          <div class="type-chip"><div class="tc-icon">🤒</div><div class="tc-name">Sakit / Sick</div></div>
+          <div class="type-chip"><div class="tc-icon">📋</div><div class="tc-name">Koordinator</div></div>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fgroup">
+          <label class="flabel">Tanggal / Date</label>
+          <div class="finput-icon"><i class="fas fa-calendar fi"></i>
+            <input class="finput" value="03 Jun 2025" style="font-size:12px">
+          </div>
+        </div>
+        <div class="fgroup">
+          <label class="flabel">Waktu / Time</label>
+          <div class="finput-icon"><i class="fas fa-clock fi"></i>
+            <input class="finput" value="08:00" style="font-size:12px">
+          </div>
+        </div>
+      </div>
+      <div class="fgroup">
+        <label class="flabel">Keterangan / Notes</label>
+        <textarea class="ftextarea" placeholder="Tulis keterangan izin... / Add notes..."></textarea>
+      </div>
+      <div class="fgroup">
+        <label class="flabel">Lampiran / Attachment (opsional)</label>
+        <div class="upload-box"><i class="fas fa-paperclip"></i><p>Upload surat dokter, dll. / Supporting doc</p></div>
+      </div>
+      <button class="btn-r"><i class="fas fa-paper-plane"></i> Ajukan Izin / Submit</button>
+    </div>
+
+    <div style="padding:14px 14px 6px">
+      <div class="sec-hdr"><span class="sec-title">Riwayat Izin / History</span><span class="see-all">Semua</span></div>
+    </div>
+    <div class="izin-hist">
+      <div class="izin-item">
+        <div class="izin-ico sk">🤒</div>
+        <div class="izin-det"><div class="izin-type">Izin Sakit / Sick Leave</div><div class="izin-date">30 Mei 2025 · Full Day</div></div>
+        <span class="istatus is-ok">Approved ✓</span>
+      </div>
+      <div class="izin-item">
+        <div class="izin-ico hr">🕐</div>
+        <div class="izin-det"><div class="izin-type">Izin Jam / Hour Leave</div><div class="izin-date">25 Mei 2025 · 10:00–12:00</div></div>
+        <span class="istatus is-ok">Approved ✓</span>
+      </div>
+      <div class="izin-item">
+        <div class="izin-ico cd">📋</div>
+        <div class="izin-det"><div class="izin-type">Koordinator</div><div class="izin-date">20 Mei 2025 · Full Day</div></div>
+        <span class="istatus is-pend">Pending ⏳</span>
+      </div>
+      <div class="izin-item">
+        <div class="izin-ico dy">🌅</div>
+        <div class="izin-det"><div class="izin-type">Izin Pagi / Morning</div><div class="izin-date">15 Mei 2025 · 07:00–10:00</div></div>
+        <span class="istatus is-rej">Rejected ✗</span>
+      </div>
+    </div>
+
+    <div class="bnav">
+      <div class="ni"><i class="fas fa-home"></i><span>Absensi</span></div>
+      <div class="ni on"><i class="fas fa-file-alt"></i><span>Izin</span><div class="ni-dot"></div></div>
+      <div class="ni"><i class="fas fa-chart-bar"></i><span>Laporan</span></div>
+      <div class="ni"><i class="fas fa-money-bill-wave"></i><span>Payroll</span></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ==================== SCREEN 5: REPORT ==================== -->
+<div class="screen-col">
+  <div class="screen-lbl">5 · Laporan / Report</div>
+  <div class="phone"><div class="ph">
+    <div class="sb r"><span>9:41</span><div class="sb-icons"><i class="fas fa-signal"></i><i class="fas fa-wifi"></i><i class="fas fa-battery-full"></i></div></div>
+    <div class="red-hdr"><h2>Laporan Kehadiran</h2><p>Attendance Report</p></div>
+
+    <div class="tog-row">
+      <button class="tog-btn">Harian / Daily</button>
+      <button class="tog-btn on">Bulanan / Monthly</button>
+      <button class="tog-btn">Tahunan / Yearly</button>
+    </div>
+
+    <div class="month-sel">
+      <div class="mnav"><i class="fas fa-chevron-left"></i></div>
+      <span class="mname">Juni 2025</span>
+      <div class="mnav"><i class="fas fa-chevron-right"></i></div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card sc-green"><div class="sc-icon">✅</div><div class="sc-num">18</div><div class="sc-lbl">Hadir / Present</div></div>
+      <div class="stat-card sc-gold"><div class="sc-icon">📋</div><div class="sc-num">2</div><div class="sc-lbl">Izin / Leave</div></div>
+      <div class="stat-card sc-red"><div class="sc-icon">❌</div><div class="sc-num">1</div><div class="sc-lbl">Alpha / Absent</div></div>
+      <div class="stat-card sc-orange"><div class="sc-icon">⏰</div><div class="sc-num">3</div><div class="sc-lbl">Terlambat / Late</div></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-ttl">Tingkat Kehadiran / Attendance Rate</div>
+      <div style="text-align:center;margin-bottom:8px">
+        <span style="font-size:28px;font-weight:700;color:var(--green)">87.5%</span><br>
+        <span style="font-size:10px;color:var(--t3)">Dari 24 hari kerja / Out of 24 working days</span>
+      </div>
+      <div class="prog-wrap"><div class="prog-bar" style="width:87.5%"></div></div>
+      <div class="bar-chart">
+        <div class="bg"><div class="bar bar-p" style="height:70px"></div><div class="bar-lbl">Sen</div></div>
+        <div class="bg"><div class="bar bar-p" style="height:70px"></div><div class="bar-lbl">Sel</div></div>
+        <div class="bg"><div class="bar bar-l" style="height:52px"></div><div class="bar-lbl">Rab</div></div>
+        <div class="bg"><div class="bar bar-p" style="height:70px"></div><div class="bar-lbl">Kam</div></div>
+        <div class="bg"><div class="bar bar-p" style="height:70px"></div><div class="bar-lbl">Jum</div></div>
+        <div class="bg"><div class="bar" style="height:0"></div><div class="bar-lbl">Sab</div></div>
+      </div>
+      <div class="legend">
+        <div class="lgd"><div class="ldot" style="background:var(--green)"></div>Hadir</div>
+        <div class="lgd"><div class="ldot" style="background:var(--gold)"></div>Terlambat</div>
+        <div class="lgd"><div class="ldot" style="background:var(--red-l)"></div>Alpha</div>
+      </div>
+    </div>
+
+    <div style="padding:0 14px 74px">
+      <div class="sec-hdr" style="margin-bottom:9px"><span class="sec-title">Rekap Detail</span></div>
+      <div class="hist-item">
+        <div class="hdate"><span class="hdate-d">03</span><span class="hdate-m">Jun</span></div>
+        <div class="hinfo">
+          <div class="hname">Selasa / Tuesday</div>
+          <div class="hmeta"><span class="chip chip-g">Hadir</span><span class="chip chip-y">07:05 – 14:30</span></div>
+        </div>
+        <span style="font-size:16px">✅</span>
+      </div>
+      <div class="hist-item" style="margin-top:9px">
+        <div class="hdate" style="background:var(--gold-l)"><span class="hdate-d" style="color:var(--gold-d)">02</span><span class="hdate-m" style="color:var(--gold-d)">Jun</span></div>
+        <div class="hinfo">
+          <div class="hname">Senin / Monday</div>
+          <div class="hmeta"><span class="chip chip-o">Terlambat</span><span class="chip chip-y">08:45 – 14:30</span></div>
+        </div>
+        <span style="font-size:16px">⏰</span>
+      </div>
+    </div>
+
+    <div class="bnav">
+      <div class="ni"><i class="fas fa-home"></i><span>Absensi</span></div>
+      <div class="ni"><i class="fas fa-file-alt"></i><span>Izin</span></div>
+      <div class="ni on"><i class="fas fa-chart-bar"></i><span>Laporan</span><div class="ni-dot"></div></div>
+      <div class="ni"><i class="fas fa-money-bill-wave"></i><span>Payroll</span></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ==================== SCREEN 6: PAYROLL ==================== -->
+<div class="screen-col">
+  <div class="screen-lbl">6 · Payroll</div>
+  <div class="phone"><div class="ph">
+    <div class="sb r"><span>9:41</span><div class="sb-icons"><i class="fas fa-signal"></i><i class="fas fa-wifi"></i><i class="fas fa-battery-full"></i></div></div>
+    <div class="red-hdr" style="padding-bottom:14px"><h2>Payroll</h2><p>Slip Gaji / Salary Slip</p></div>
+
+    <div class="month-sel" style="margin-top:14px">
+      <div class="mnav"><i class="fas fa-chevron-left"></i></div>
+      <span class="mname">Juni 2025</span>
+      <div class="mnav"><i class="fas fa-chevron-right"></i></div>
+    </div>
+
+    <div class="pay-card">
+      <div class="pay-month">Gaji Bersih / Net Salary — Juni 2025</div>
+      <div class="pay-amount"><span>Rp </span>4.850.000</div>
+      <div class="pay-srow">
+        <span class="pay-badge">✓ Sudah Dibayar / Paid</span>
+        <span class="pay-date">28 Jun 2025</span>
+      </div>
+    </div>
+
+    <div class="bdown-card">
+      <div class="bdown-ttl">Rincian Gaji / Salary Breakdown</div>
+      <div class="brow">
+        <div class="blbl"><div class="bico" style="background:var(--green-l)">💰</div>Gaji Pokok / Basic</div>
+        <div class="bamount ba-plus">+ Rp 3.500.000</div>
+      </div>
+      <div class="brow">
+        <div class="blbl"><div class="bico" style="background:var(--blue-l)">📚</div>T. Fungsional</div>
+        <div class="bamount ba-plus">+ Rp 750.000</div>
+      </div>
+      <div class="brow">
+        <div class="blbl"><div class="bico" style="background:var(--purple-l)">🚌</div>T. Transport</div>
+        <div class="bamount ba-plus">+ Rp 500.000</div>
+      </div>
+      <div class="brow">
+        <div class="blbl"><div class="bico" style="background:var(--gold-l)">🍽️</div>Uang Makan</div>
+        <div class="bamount ba-plus">+ Rp 300.000</div>
+      </div>
+      <div class="bdiv"></div>
+      <div class="brow">
+        <div class="blbl"><div class="bico" style="background:var(--red-l)">📊</div>Potongan Absen</div>
+        <div class="bamount ba-minus">− Rp 150.000</div>
+      </div>
+      <div class="brow">
+        <div class="blbl"><div class="bico" style="background:var(--red-l)">🏛️</div>Potongan BPJS</div>
+        <div class="bamount ba-minus">− Rp 50.000</div>
+      </div>
+      <div class="bdiv"></div>
+      <div class="brow-total">
+        <div class="blbl-total">Total Bersih / Net</div>
+        <div class="bamount-total">Rp 4.850.000</div>
+      </div>
+    </div>
+
+    <div class="bdown-card">
+      <div class="bdown-ttl">Dasar Perhitungan / Attendance Basis</div>
+      <div class="brow"><span style="font-size:11px;color:var(--t2)">Hari Kerja / Working Days</span><span style="font-size:12px;font-weight:600">24 Hari</span></div>
+      <div class="brow"><span style="font-size:11px;color:var(--t2)">Hadir / Present</span><span style="font-size:12px;font-weight:600;color:var(--green)">21 Hari</span></div>
+      <div class="brow"><span style="font-size:11px;color:var(--t2)">Izin / Leave</span><span style="font-size:12px;font-weight:600;color:var(--gold-d)">2 Hari</span></div>
+      <div class="brow"><span style="font-size:11px;color:var(--t2)">Alpha / Absent</span><span style="font-size:12px;font-weight:600;color:var(--red)">1 Hari</span></div>
+    </div>
+
+    <button class="dl-btn"><i class="fas fa-download"></i> Download Slip PDF</button>
+
+    <div style="padding:0 14px">
+      <div class="sec-hdr" style="margin-bottom:9px"><span class="sec-title">Riwayat / History</span><span class="see-all">Semua</span></div>
+      <div class="pay-hist-item">
+        <div class="pay-ico">💵</div>
+        <div class="phi"><div class="phi-month">Mei 2025</div><div class="phi-date">Dibayar 28 Mei 2025</div></div>
+        <div class="phi-amt">Rp 4.900.000</div>
+      </div>
+      <div class="pay-hist-item">
+        <div class="pay-ico">💵</div>
+        <div class="phi"><div class="phi-month">April 2025</div><div class="phi-date">Dibayar 28 Apr 2025</div></div>
+        <div class="phi-amt">Rp 5.050.000</div>
+      </div>
+      <div style="height:80px"></div>
+    </div>
+
+    <div class="bnav">
+      <div class="ni"><i class="fas fa-home"></i><span>Absensi</span></div>
+      <div class="ni"><i class="fas fa-file-alt"></i><span>Izin</span></div>
+      <div class="ni"><i class="fas fa-chart-bar"></i><span>Laporan</span></div>
+      <div class="ni on"><i class="fas fa-money-bill-wave"></i><span>Payroll</span><div class="ni-dot"></div></div>
+    </div>
+  </div></div>
+</div>
+
+</div><!-- end screens-row -->
+</body>
+</html>

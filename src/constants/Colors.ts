@@ -1,4 +1,4 @@
-const Colors = {
+const light = {
   // ── Brand ─────────────────────────────────────────────────────────────────
   primary:      '#1565C0',
   primaryDark:  '#0D47A1',
@@ -57,4 +57,60 @@ const Colors = {
   errorLight:   '#FFEBEE',
 };
 
-export default Colors;
+const dark: typeof light = {
+  // ── Brand ─────────────────────────────────────────────────────────────────
+  primary:      '#1E88E5',
+  primaryDark:  '#0D47A1',
+  primaryLight: '#27445E',
+  primaryXLight:'#16263A',
+
+  accent:     '#FFC107',
+  accentDark: '#FFB300',
+  accentLight:'#3A2F12',
+
+  // ── Neutral ────────────────────────────────────────────────────────────────
+  white:      '#1E1E1E',
+  background: '#121212',
+
+  textPrimary:   '#ECECEC',
+  textSecondary: '#B0B0B0',
+  textTertiary:  '#8A8A8A',
+  textHint:      '#6E6E6E',
+
+  border:  '#333333',
+  divider: '#2A2A2A',
+
+  infoLight: '#16263A',
+
+  // ── Status KEHADIRAN ────────────────────────────────────────────────────────
+  statusHadir:   '#66BB6A',
+  statusHadirBg: '#1B3320',
+  statusTerlambat:   '#FF8A65',
+  statusTerlambatBg: '#3A2014',
+  statusAlpha:   '#EF5350',
+  statusAlphaBg: '#3A1417',
+  statusIzin:    '#FFB74D',
+  statusIzinBg:  '#3A2A12',
+
+  // ── Status PENGAJUAN (Izin, Payroll) ──────────────────────────────────────
+  statusOk:    '#66BB6A',
+  statusOkBg:  '#1B3320',
+  statusWait:   '#FFB74D',
+  statusWaitBg: '#3A2A12',
+  statusReject:   '#EF5350',
+  statusRejectBg: '#3A1417',
+
+  // ── Semantic aliases (backward-compat) ────────────────────────────────────
+  success:      '#66BB6A',
+  successLight: '#1B3320',
+  warning:      '#FF8A65',
+  warningLight: '#3A2014',
+  error:        '#EF5350',
+  errorLight:   '#3A1417',
+};
+
+export type ColorPalette = typeof light;
+
+export const Palettes = { light, dark };
+
+export default light;

@@ -7,13 +7,16 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthStackParamList } from '../../types';
-import Colors from '../../constants/Colors';
+import { ColorPalette } from '../../constants/Colors';
+import { useTheme } from '../../context/ThemeContext';
 import { FontSize, Radius, Spacing } from '../../constants/Theme';
 import AlertModal from '../../components/AlertModal';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'ForgotPassword'> };
 
 export default function ForgotPasswordScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = React.useMemo(() => getStyles(colors), [colors]);
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [terkirim, setTerkirim] = useState(false);
@@ -43,7 +46,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
       <ScrollView showsVerticalScrollIndicator={false}>
 
         {/* ── HEADER ── */}
-        <LinearGradient colors={[Colors.primaryDark, Colors.primary]} style={styles.header}>
+        <LinearGradient colors={[colors.primaryDark, colors.primary]} style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
             <Text style={styles.backIcon}>←</Text>
           </TouchableOpacity>
@@ -67,7 +70,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
             <TextInput
               style={styles.input}
               placeholder="guru@bintangjuara.sch.id"
-              placeholderTextColor={Colors.textHint}
+              placeholderTextColor={colors.textHint}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -76,7 +79,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
           </View>
 
           <TouchableOpacity style={styles.sendBtn} onPress={handleKirimOtp} disabled={loading} activeOpacity={0.85}>
-            <LinearGradient colors={[Colors.primary, Colors.primaryDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.sendBtnGrad}>
+            <LinearGradient colors={[colors.primary, colors.primaryDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.sendBtnGrad}>
               {loading
                 ? <ActivityIndicator color="#fff" />
                 : <Text style={styles.sendBtnText}>📨  Kirim Kode OTP</Text>
@@ -125,8 +128,8 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#fff' },
+const getStyles = (colors: ColorPalette) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.white },
 
   header: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingTop: 52, paddingBottom: 22, paddingHorizontal: 18 },
   backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
@@ -135,28 +138,28 @@ const styles = StyleSheet.create({
 
   body: { padding: Spacing.md, paddingTop: Spacing.lg },
 
-  illustBox: { width: 110, height: 110, borderRadius: 55, backgroundColor: Colors.primaryXLight, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: Spacing.md },
+  illustBox: { width: 110, height: 110, borderRadius: 55, backgroundColor: colors.primaryXLight, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: Spacing.md },
   illustEmoji: { fontSize: 52 },
 
-  title: { fontSize: FontSize.xl, fontFamily: 'Poppins_700Bold', color: Colors.textPrimary, textAlign: 'center', marginBottom: 8 },
-  subtitle: { fontSize: FontSize.sm, fontFamily: 'Poppins_400Regular', color: Colors.textTertiary, textAlign: 'center', lineHeight: 22, marginBottom: Spacing.lg },
+  title: { fontSize: FontSize.xl, fontFamily: 'Poppins_700Bold', color: colors.textPrimary, textAlign: 'center', marginBottom: 8 },
+  subtitle: { fontSize: FontSize.sm, fontFamily: 'Poppins_400Regular', color: colors.textTertiary, textAlign: 'center', lineHeight: 22, marginBottom: Spacing.lg },
 
-  label: { fontSize: 11, fontFamily: 'Poppins_600SemiBold', color: Colors.textSecondary, letterSpacing: 0.5, marginBottom: 8 },
-  inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.background, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border, paddingHorizontal: 14, marginBottom: 14, height: 52 },
+  label: { fontSize: 11, fontFamily: 'Poppins_600SemiBold', color: colors.textSecondary, letterSpacing: 0.5, marginBottom: 8 },
+  inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, borderRadius: Radius.md, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, marginBottom: 14, height: 52 },
   inputIcon: { fontSize: 16, marginRight: 10 },
-  input: { flex: 1, fontSize: FontSize.md, fontFamily: 'Poppins_400Regular', color: Colors.textPrimary },
+  input: { flex: 1, fontSize: FontSize.md, fontFamily: 'Poppins_400Regular', color: colors.textPrimary },
 
   sendBtn: { borderRadius: Radius.md, overflow: 'hidden', marginBottom: 12 },
   sendBtnGrad: { paddingVertical: 16, alignItems: 'center' },
   sendBtnText: { color: '#fff', fontSize: FontSize.md, fontFamily: 'Poppins_600SemiBold' },
 
-  backToLoginBtn: { borderWidth: 1.5, borderColor: Colors.primary, borderRadius: Radius.md, paddingVertical: 14, alignItems: 'center', marginBottom: Spacing.lg },
-  backToLoginText: { color: Colors.primary, fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold' },
+  backToLoginBtn: { borderWidth: 1.5, borderColor: colors.primary, borderRadius: Radius.md, paddingVertical: 14, alignItems: 'center', marginBottom: Spacing.lg },
+  backToLoginText: { color: colors.primary, fontSize: FontSize.sm, fontFamily: 'Poppins_600SemiBold' },
 
-  otpBox: { borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.border, borderRadius: Radius.md, padding: 18, alignItems: 'center', minHeight: 68, justifyContent: 'center' },
+  otpBox: { borderWidth: 2, borderStyle: 'dashed', borderColor: colors.border, borderRadius: Radius.md, padding: 18, alignItems: 'center', minHeight: 68, justifyContent: 'center' },
   otpBoxDisabled: { opacity: 0.4 },
-  otpPlaceholder: { fontSize: FontSize.xs, color: Colors.textHint, fontFamily: 'Poppins_400Regular' },
-  otpLabel: { fontSize: FontSize.xs, fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, marginBottom: 14 },
+  otpPlaceholder: { fontSize: FontSize.xs, color: colors.textHint, fontFamily: 'Poppins_400Regular' },
+  otpLabel: { fontSize: FontSize.xs, fontFamily: 'Poppins_500Medium', color: colors.textSecondary, marginBottom: 14 },
   otpRow: { flexDirection: 'row', gap: 10 },
-  otpInput: { width: 44, height: 54, borderWidth: 1.5, borderColor: Colors.primary, borderRadius: Radius.sm, fontSize: FontSize.xl, fontFamily: 'Poppins_700Bold', color: Colors.primary, backgroundColor: Colors.primaryXLight },
+  otpInput: { width: 44, height: 54, borderWidth: 1.5, borderColor: colors.primary, borderRadius: Radius.sm, fontSize: FontSize.xl, fontFamily: 'Poppins_700Bold', color: colors.primary, backgroundColor: colors.primaryXLight },
 });

@@ -12,9 +12,6 @@ expo-env.d.ts
 .env.local
 .env.*.local
 
-# Services (API calls — private)
-src/services/
-
 # Native builds
 android/
 ios/

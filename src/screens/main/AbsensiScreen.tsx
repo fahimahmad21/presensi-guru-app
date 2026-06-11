@@ -11,18 +11,21 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import MapView, { Marker, Circle, PROVIDER_DEFAULT } from "react-native-maps";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../../context/AuthContext";
-import { AbsentInfo, AbsentCheck, AbsentHistoryItem } from "../../types";
+import { AbsentInfo, AbsentCheck, AbsentHistoryItem, MainTabParamList } from "../../types";
 import {
   getAbsentInfo,
   getAbsentCheck,
   getAbsentHistory,
   insertAbsent,
 } from "../../services/absentService";
-import Colors from "../../constants/Colors";
+import { ColorPalette } from "../../constants/Colors";
+import { useTheme } from "../../context/ThemeContext";
 import { FontSize, Shadow } from "../../constants/Theme";
 import AppHeader from "../../components/AppHeader";
 import AlertModal from "../../components/AlertModal";
@@ -63,20 +66,64 @@ function isToday(isoDate: string) {
   return datePart === todayStr;
 }
 
-const STATUS_CFG = {
-  IN: { bg: Colors.statusHadirBg, color: Colors.statusHadir, label: "Masuk" },
-  OUT: { bg: Colors.statusIzinBg, color: Colors.statusIzin, label: "Keluar" },
-  INV: {
-    bg: Colors.statusAlphaBg,
-    color: Colors.statusAlpha,
-    label: "Tidak Valid",
-  },
-};
+// Apakah jam sekarang sudah melewati jam deadline ("HH:MM:SS") dari jadwal presensi
+function isPastDeadline(deadline: string | undefined) {
+  if (!deadline) return false;
+  const now = new Date();
+  const nowStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+  return nowStr > deadline;
+}
+
+interface RiwayatHarian {
+  dateKey: string;
+  tgl: string;
+  bln: string;
+  masuk?: AbsentHistoryItem;
+  pulang?: AbsentHistoryItem;
+}
+
+// Gabungkan scan IN & OUT mentah menjadi satu baris per tanggal.
+function groupHistoryPerHari(items: AbsentHistoryItem[]): RiwayatHarian[] {
+  const map = new Map<string, RiwayatHarian>();
+  for (const item of items) {
+    const dateKey = item.date.split("T")[0];
+    let entry = map.get(dateKey);
+    if (!entry) {
+      const { tgl, bln } = formatTanggal(item.date);
+      entry = { dateKey, tgl, bln };
+      map.set(dateKey, entry);
+    }
+    if (item.type === "IN") {
+      if (!entry.masuk || item.date < entry.masuk.date) entry.masuk = item;
+    } else {
+      if (!entry.pulang || item.date > entry.pulang.date) entry.pulang = item;
+    }
+  }
+  return Array.from(map.values()).sort((a, b) =>
+    b.dateKey.localeCompare(a.dateKey)
+  );
+}
+
+function getStatusCfg(colors: ColorPalette) {
+  return {
+    IN: { bg: colors.statusHadirBg, color: colors.statusHadir, label: "Masuk" },
+    OUT: { bg: colors.statusIzinBg, color: colors.statusIzin, label: "Keluar" },
+    INV: {
+      bg: colors.statusAlphaBg,
+      color: colors.statusAlpha,
+      label: "Tidak Valid",
+    },
+  };
+}
 
 type LokasiStatus = "loading" | "found" | "out_range" | "error";
 
 export default function AbsensiScreen() {
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = React.useMemo(() => getStyles(colors), [colors]);
+  const STATUS_CFG = React.useMemo(() => getStatusCfg(colors), [colors]);
+  const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
 
   const [absentInfo, setAbsentInfo] = useState<AbsentInfo | null>(null);
   const [checkStatus, setCheckStatus] = useState<AbsentCheck | null>(null);
@@ -136,6 +183,12 @@ export default function AbsensiScreen() {
   const sekolahRadius = parseInt(absentInfo?.maps.radius ?? "100");
   const sekolahNama = absentInfo?.name ?? "Sekolah";
 
+  const groupedHistory = React.useMemo(
+    () => groupHistoryPerHari(history),
+    [history]
+  );
+  const RIWAYAT_LIMIT = 5;
+
   const aksiAbsen = checkStatus?.absent.type === "OUT" ? "keluar" : "masuk";
   const todayIN = history.find((h) => h.type === "IN" && isToday(h.date));
   const todayOUT = history.find((h) => h.type === "OUT" && isToday(h.date));
@@ -150,14 +203,21 @@ export default function AbsensiScreen() {
     month: "long",
     year: "numeric",
   });
-  const badgeColor = checkInTime
-    ? { bg: Colors.successLight, text: Colors.success }
-    : { bg: Colors.warningLight, text: Colors.warning };
   const todayStatus = checkInTime
     ? checkOutTime
       ? "Selesai"
       : "Sudah Masuk"
-    : "Belum Absen";
+    : checkOutTime
+      ? "Lupa Absen Masuk"
+      : "Belum Absen";
+  const badgeColor = checkInTime
+    ? { bg: colors.successLight, text: colors.success }
+    : checkOutTime
+      ? { bg: colors.errorLight, text: colors.error }
+      : { bg: colors.warningLight, text: colors.warning };
+
+  const lupaMasuk  = !checkInTime  && isPastDeadline(checkStatus?.presence.endstart);
+  const lupaPulang = !checkOutTime && isPastDeadline(checkStatus?.presence.endfinish);
 
   const mapInitial = {
     latitude: userCoords?.lat ?? (sekolahLat || -7.022846),
@@ -286,10 +346,10 @@ export default function AbsensiScreen() {
           flex: 1,
           justifyContent: "center",
           alignItems: "center",
-          backgroundColor: Colors.background,
+          backgroundColor: colors.background,
         }}
       >
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -339,17 +399,23 @@ export default function AbsensiScreen() {
               <View style={styles.timeBox}>
                 <Text style={styles.timeLabel}>Jam Masuk</Text>
                 <Text
-                  style={[styles.timeVal, !checkInTime && styles.timeEmpty]}
+                  style={[
+                    styles.timeVal,
+                    !checkInTime && (lupaMasuk ? styles.timeLupa : styles.timeEmpty),
+                  ]}
                 >
-                  {checkInTime ?? "--:--"}
+                  {checkInTime ?? (lupaMasuk ? "Lupa Masuk" : "--:--")}
                 </Text>
               </View>
               <View style={styles.timeBox}>
                 <Text style={styles.timeLabel}>Jam Keluar</Text>
                 <Text
-                  style={[styles.timeVal, !checkOutTime && styles.timeEmpty]}
+                  style={[
+                    styles.timeVal,
+                    !checkOutTime && (lupaPulang ? styles.timeLupa : styles.timeEmpty),
+                  ]}
                 >
-                  {checkOutTime ?? "--:--"}
+                  {checkOutTime ?? (lupaPulang ? "Lupa Pulang" : "--:--")}
                 </Text>
               </View>
             </View>
@@ -371,7 +437,7 @@ export default function AbsensiScreen() {
           {/* ── INFO SHIFT ── */}
           {absentInfo?.data && (
             <View style={[styles.shiftCard, Shadow.sm]}>
-              <Ionicons name="time-outline" size={15} color={Colors.primary} />
+              <Ionicons name="time-outline" size={15} color={colors.primary} />
               <Text style={styles.shiftText}>
                 <Text style={{ fontFamily: "Poppins_600SemiBold" }}>
                   {absentInfo.data.name}
@@ -379,7 +445,7 @@ export default function AbsensiScreen() {
                 {"  ·  "}Masuk{" "}
                 <Text
                   style={{
-                    color: Colors.statusHadir,
+                    color: colors.statusHadir,
                     fontFamily: "Poppins_600SemiBold",
                   }}
                 >
@@ -388,7 +454,7 @@ export default function AbsensiScreen() {
                 {"  ·  "}Keluar{" "}
                 <Text
                   style={{
-                    color: Colors.statusAlpha,
+                    color: colors.statusAlpha,
                     fontFamily: "Poppins_600SemiBold",
                   }}
                 >
@@ -404,19 +470,19 @@ export default function AbsensiScreen() {
               {
                 num: history.filter((h) => h.type === "IN" && h.valid).length,
                 label: "Masuk",
-                color: Colors.statusHadir,
+                color: colors.statusHadir,
               },
               {
                 num: history.filter((h) => h.type === "OUT" && h.valid).length,
                 label: "Keluar",
-                color: Colors.statusIzin,
+                color: colors.statusIzin,
               },
               {
                 num: history.filter((h) => !h.valid).length,
                 label: "Invalid",
-                color: Colors.statusAlpha,
+                color: colors.statusAlpha,
               },
-              { num: history.length, label: "Total", color: Colors.primary },
+              { num: history.length, label: "Total", color: colors.primary },
             ].map((item) => (
               <View key={item.label} style={[styles.sumItem, Shadow.sm]}>
                 <Text style={[styles.sumNum, { color: item.color }]}>
@@ -432,60 +498,103 @@ export default function AbsensiScreen() {
             <Text style={styles.sectionTitle}>Riwayat Absensi</Text>
           </View>
 
-          {history.length === 0 ? (
+          {groupedHistory.length === 0 ? (
             <View style={[styles.emptyBox, Shadow.sm]}>
               <Ionicons
                 name="calendar-outline"
                 size={36}
-                color={Colors.textHint}
+                color={colors.textHint}
               />
               <Text style={styles.emptyText}>Belum ada riwayat absensi</Text>
             </View>
           ) : (
-            history.map((item) => {
-              const sc = !item.valid
-                ? STATUS_CFG.INV
-                : item.type === "IN"
-                  ? STATUS_CFG.IN
-                  : STATUS_CFG.OUT;
-              const { tgl, bln } = formatTanggal(item.date);
-              const jam = formatJam(item.date);
-              return (
-                <View key={item.id} style={[styles.histItem, Shadow.sm]}>
-                  <View style={[styles.dateBox, { backgroundColor: sc.bg }]}>
-                    <Text style={[styles.dateDay, { color: sc.color }]}>
-                      {tgl}
-                    </Text>
-                    <Text style={[styles.dateMonth, { color: sc.color }]}>
-                      {bln}
-                    </Text>
-                  </View>
-                  <View style={styles.histInfo}>
-                    <Text style={styles.histName}>{item.device}</Text>
-                    <View style={styles.chipRow}>
-                      <View style={[styles.chip, { backgroundColor: sc.bg }]}>
-                        <Text style={[styles.chipText, { color: sc.color }]}>
-                          {sc.label}
+            <>
+              {groupedHistory.slice(0, RIWAYAT_LIMIT).map((g) => {
+                const masukSc = g.masuk
+                  ? !g.masuk.valid
+                    ? STATUS_CFG.INV
+                    : STATUS_CFG.IN
+                  : null;
+                const pulangSc = g.pulang
+                  ? !g.pulang.valid
+                    ? STATUS_CFG.INV
+                    : STATUS_CFG.OUT
+                  : null;
+                return (
+                  <View key={g.dateKey} style={[styles.histItem, Shadow.sm]}>
+                    <View style={styles.dateBox}>
+                      <Text style={styles.dateDay}>{g.tgl}</Text>
+                      <Text style={styles.dateMonth}>{g.bln}</Text>
+                    </View>
+
+                    <View style={styles.histCol}>
+                      {g.masuk && masukSc ? (
+                        <>
+                          <View style={styles.histJamRow}>
+                            <Text style={[styles.histJam, { color: masukSc.color }]}>
+                              {formatJam(g.masuk.date)}
+                            </Text>
+                            {g.masuk.image && (
+                              <Ionicons name="camera" size={11} color={colors.primary} style={styles.histJamIcon} />
+                            )}
+                          </View>
+                          <View style={[styles.chip, { backgroundColor: masukSc.bg }]}>
+                            <Text style={[styles.chipText, { color: masukSc.color }]}>
+                              {masukSc.label}
+                            </Text>
+                          </View>
+                        </>
+                      ) : (
+                        <Text style={[styles.histJamEmpty, styles.histJamEmptySmall]}>
+                          {isToday(g.dateKey) && !isPastDeadline(checkStatus?.presence.endstart)
+                            ? "--:--"
+                            : "Lupa\nmasuk"}
                         </Text>
-                      </View>
-                      {item.image && (
-                        <View style={styles.chipImg}>
-                          <Ionicons
-                            name="camera-outline"
-                            size={11}
-                            color={Colors.primary}
-                          />
-                          <Text style={styles.chipImgText}>Foto</Text>
-                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.histColDivider} />
+
+                    <View style={styles.histCol}>
+                      {g.pulang && pulangSc ? (
+                        <>
+                          <View style={styles.histJamRow}>
+                            <Text style={[styles.histJam, { color: pulangSc.color }]}>
+                              {formatJam(g.pulang.date)}
+                            </Text>
+                            {g.pulang.image && (
+                              <Ionicons name="camera" size={11} color={colors.primary} style={styles.histJamIcon} />
+                            )}
+                          </View>
+                          <View style={[styles.chip, { backgroundColor: pulangSc.bg }]}>
+                            <Text style={[styles.chipText, { color: pulangSc.color }]}>
+                              {pulangSc.label}
+                            </Text>
+                          </View>
+                        </>
+                      ) : (
+                        <Text style={[styles.histJamEmpty, styles.histJamEmptySmall]}>
+                          {isToday(g.dateKey) && !isPastDeadline(checkStatus?.presence.endfinish)
+                            ? "Belum\npulang"
+                            : "Lupa\npulang"}
+                        </Text>
                       )}
                     </View>
                   </View>
-                  <Text style={[styles.histJam, { color: sc.color }]}>
-                    {jam}
-                  </Text>
-                </View>
-              );
-            })
+                );
+              })}
+
+              {groupedHistory.length > RIWAYAT_LIMIT && (
+                <TouchableOpacity
+                  style={styles.lihatSemuaBtn}
+                  onPress={() => navigation.navigate("Laporan")}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.lihatSemuaText}>Lihat Semua Riwayat</Text>
+                  <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+                </TouchableOpacity>
+              )}
+            </>
           )}
 
           <View style={{ height: 20 }} />
@@ -505,7 +614,7 @@ export default function AbsensiScreen() {
             <Text style={styles.modalSub}>
               Aksi:{" "}
               <Text
-                style={{ fontFamily: "Poppins_700Bold", color: Colors.primary }}
+                style={{ fontFamily: "Poppins_700Bold", color: colors.primary }}
               >
                 Absen {aksiAbsen === "masuk" ? "Masuk" : "Keluar"}
               </Text>
@@ -528,12 +637,12 @@ export default function AbsensiScreen() {
                         longitude: sekolahLng,
                       }}
                       title={sekolahNama}
-                      pinColor={Colors.primary}
+                      pinColor={colors.primary}
                     />
                     <Circle
                       center={{ latitude: sekolahLat, longitude: sekolahLng }}
                       radius={sekolahRadius}
-                      strokeColor={Colors.primary}
+                      strokeColor={colors.primary}
                       strokeWidth={2}
                       fillColor="rgba(21,101,192,0.12)"
                     />
@@ -552,7 +661,7 @@ export default function AbsensiScreen() {
               </MapView>
               {lokasiStatus === "loading" && (
                 <View style={styles.mapOverlay}>
-                  <ActivityIndicator size="large" color={Colors.primary} />
+                  <ActivityIndicator size="large" color={colors.primary} />
                   <Text style={styles.mapOverlayText}>
                     Mendeteksi lokasi...
                   </Text>
@@ -565,7 +674,7 @@ export default function AbsensiScreen() {
                 <Ionicons
                   name="checkmark-circle"
                   size={20}
-                  color={Colors.success}
+                  color={colors.success}
                 />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.lokasiInfoTitle}>{sekolahNama}</Text>
@@ -577,11 +686,11 @@ export default function AbsensiScreen() {
             )}
             {lokasiStatus === "out_range" && userCoords && (
               <View style={[styles.lokasiInfoBox, styles.lokasiInfoWarning]}>
-                <Ionicons name="warning" size={20} color={Colors.warning} />
+                <Ionicons name="warning" size={20} color={colors.warning} />
                 <Text
                   style={[
                     styles.lokasiInfoTitle,
-                    { color: Colors.warning, flex: 1 },
+                    { color: colors.warning, flex: 1 },
                   ]}
                 >
                   Di luar area sekolah ({userCoords.jarak} m)
@@ -590,11 +699,11 @@ export default function AbsensiScreen() {
             )}
             {lokasiStatus === "error" && (
               <View style={[styles.lokasiInfoBox, styles.lokasiInfoWarning]}>
-                <Ionicons name="close-circle" size={20} color={Colors.error} />
+                <Ionicons name="close-circle" size={20} color={colors.error} />
                 <Text
                   style={[
                     styles.lokasiInfoTitle,
-                    { color: Colors.error, flex: 1 },
+                    { color: colors.error, flex: 1 },
                   ]}
                 >
                   Gagal mendapatkan lokasi
@@ -645,7 +754,7 @@ export default function AbsensiScreen() {
                 <Ionicons
                   name="person-circle-outline"
                   size={72}
-                  color={Colors.textHint}
+                  color={colors.textHint}
                 />
                 <Text style={styles.fotoPlaceholderText}>Belum ada foto</Text>
               </View>
@@ -655,7 +764,7 @@ export default function AbsensiScreen() {
               <TouchableOpacity
                 style={[
                   styles.konfirmasiBtn,
-                  { backgroundColor: Colors.textSecondary },
+                  { backgroundColor: colors.textSecondary },
                 ]}
                 onPress={bukaKamera}
                 disabled={submitting}
@@ -715,8 +824,8 @@ export default function AbsensiScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.background },
+const getStyles = (colors: ColorPalette) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
 
   headerBlend: { elevation: 0, shadowOpacity: 0 },
   headerTop: {
@@ -765,7 +874,7 @@ const styles = StyleSheet.create({
   body: { paddingHorizontal: 14, marginTop: -100 },
 
   attendCard: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.white,
     borderRadius: 20,
     padding: 18,
     marginBottom: 12,
@@ -779,35 +888,36 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: FontSize.md,
     fontFamily: "Poppins_600SemiBold",
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   badge: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4 },
   badgeText: { fontSize: FontSize.xs - 1, fontFamily: "Poppins_600SemiBold" },
   timesRow: { flexDirection: "row", gap: 12, marginBottom: 14 },
   timeBox: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     borderRadius: 12,
     padding: 12,
     alignItems: "center",
   },
   timeLabel: {
     fontSize: FontSize.xs,
-    color: Colors.textTertiary,
+    color: colors.textTertiary,
     marginBottom: 4,
   },
   timeVal: {
     fontSize: 26,
     fontFamily: "Poppins_700Bold",
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
-  timeEmpty: { color: Colors.textHint },
+  timeEmpty: { color: colors.textHint },
+  timeLupa: { color: colors.error, fontSize: FontSize.sm },
   checkBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 15,
     borderRadius: 14,
   },
@@ -826,7 +936,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "#fff",
+    backgroundColor: colors.white,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -835,14 +945,14 @@ const styles = StyleSheet.create({
   shiftText: {
     flex: 1,
     fontSize: FontSize.xs,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: "Poppins_400Regular",
   },
 
   sumStrip: { flexDirection: "row", gap: 8, marginBottom: 14 },
   sumItem: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.white,
     borderRadius: 12,
     padding: 10,
     alignItems: "center",
@@ -850,7 +960,7 @@ const styles = StyleSheet.create({
   sumNum: { fontSize: FontSize.xl, fontFamily: "Poppins_700Bold" },
   sumLabel: {
     fontSize: FontSize.xs - 2,
-    color: Colors.textTertiary,
+    color: colors.textTertiary,
     marginTop: 1,
     fontFamily: "Poppins_400Regular",
   },
@@ -859,11 +969,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: FontSize.md,
     fontFamily: "Poppins_600SemiBold",
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
 
   emptyBox: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.white,
     borderRadius: 14,
     padding: 28,
     alignItems: "center",
@@ -871,57 +981,64 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: FontSize.sm,
-    color: Colors.textTertiary,
+    color: colors.textTertiary,
     fontFamily: "Poppins_400Regular",
   },
 
   histItem: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.white,
     borderRadius: 14,
     padding: 12,
     paddingHorizontal: 14,
     flexDirection: "row",
     gap: 10,
-    alignItems: "center",
+    alignItems: "stretch",
     marginBottom: 9,
   },
   dateBox: {
     width: 44,
-    height: 44,
-    borderRadius: 11,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: colors.primaryXLight,
   },
-  dateDay: { fontSize: 17, fontFamily: "Poppins_700Bold", lineHeight: 20 },
+  dateDay: { fontSize: 17, fontFamily: "Poppins_700Bold", lineHeight: 20, color: colors.primary },
   dateMonth: {
     fontSize: 9,
     textTransform: "uppercase",
     fontFamily: "Poppins_500Medium",
+    color: colors.primary,
   },
-  histInfo: { flex: 1 },
-  histName: {
-    fontSize: FontSize.sm,
-    fontFamily: "Poppins_600SemiBold",
-    color: Colors.textPrimary,
-  },
-  chipRow: { flexDirection: "row", gap: 5, marginTop: 4 },
+  histCol: { flex: 1, alignItems: "center", justifyContent: "center", gap: 4 },
+  histColDivider: { width: 1, alignSelf: "stretch", backgroundColor: colors.border },
   chip: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20 },
   chipText: { fontSize: FontSize.xs - 2, fontFamily: "Poppins_500Medium" },
-  chipImg: {
+  histJamRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  histJamIcon: { marginTop: 1 },
+  histJam: { fontSize: FontSize.md, fontFamily: "Poppins_700Bold" },
+  histJamEmpty: {
+    fontSize: FontSize.sm,
+    fontFamily: "Poppins_500Medium",
+    color: colors.textHint,
+  },
+  histJamEmptySmall: {
+    fontSize: FontSize.xs,
+    textAlign: "center",
+    lineHeight: 15,
+  },
+  lihatSemuaBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
-    backgroundColor: Colors.primaryXLight,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 20,
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 12,
+    marginBottom: 4,
   },
-  chipImgText: {
-    fontSize: FontSize.xs - 2,
-    color: Colors.primary,
-    fontFamily: "Poppins_500Medium",
+  lihatSemuaText: {
+    fontSize: FontSize.sm,
+    fontFamily: "Poppins_600SemiBold",
+    color: colors.primary,
   },
-  histJam: { fontSize: FontSize.md, fontFamily: "Poppins_700Bold" },
 
   // Modal shared
   modalOverlay: {
@@ -930,7 +1047,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalCard: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingTop: 20,
@@ -940,13 +1057,13 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: FontSize.lg,
     fontFamily: "Poppins_700Bold",
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     textAlign: "center",
   },
   modalSub: {
     fontSize: FontSize.xs,
     fontFamily: "Poppins_400Regular",
-    color: Colors.textTertiary,
+    color: colors.textTertiary,
     textAlign: "center",
     marginBottom: 14,
   },
@@ -969,27 +1086,27 @@ const styles = StyleSheet.create({
   mapOverlayText: {
     fontSize: FontSize.sm,
     fontFamily: "Poppins_500Medium",
-    color: Colors.primary,
+    color: colors.primary,
   },
 
   lokasiInfoBox: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: Colors.successLight,
+    backgroundColor: colors.successLight,
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
   },
-  lokasiInfoWarning: { backgroundColor: Colors.warningLight },
+  lokasiInfoWarning: { backgroundColor: colors.warningLight },
   lokasiInfoTitle: {
     fontSize: FontSize.sm,
     fontFamily: "Poppins_600SemiBold",
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   lokasiInfoAddr: {
     fontSize: FontSize.xs - 1,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: "Poppins_400Regular",
   },
 
@@ -999,13 +1116,13 @@ const styles = StyleSheet.create({
     height: 220,
     borderRadius: 16,
     marginBottom: 14,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   fotoPlaceholder: {
     width: "100%",
     height: 180,
     borderRadius: 16,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 14,
@@ -1013,7 +1130,7 @@ const styles = StyleSheet.create({
   },
   fotoPlaceholderText: {
     fontSize: FontSize.sm,
-    color: Colors.textHint,
+    color: colors.textHint,
     fontFamily: "Poppins_400Regular",
   },
 
@@ -1023,7 +1140,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: 14,
     paddingVertical: 15,
   },
@@ -1036,6 +1153,6 @@ const styles = StyleSheet.create({
   batalBtnText: {
     fontSize: FontSize.md,
     fontFamily: "Poppins_500Medium",
-    color: Colors.textTertiary,
+    color: colors.textTertiary,
   },
 });

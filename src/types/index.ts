@@ -99,6 +99,17 @@ export interface AbsentHistoryItem {
   image:  string | null; // Base64
 }
 
+// Detail dari /absent/history/{id} — score berupa object dengan kode klasifikasi asli (CM/T/TM/PC/PT/dll)
+export interface AbsentHistoryDetail extends Omit<AbsentHistoryItem, 'score'> {
+  score: {
+    code:  string; // "CM", "T", "TM", "PC", "PT", "P", dll
+    data:  string;
+    name:  string;
+    type:  'IN' | 'OUT';
+    value: string;
+  };
+}
+
 export interface AbsentReportItem {
   date:   string; // "YYYY-MM-DD"
   score:  number;

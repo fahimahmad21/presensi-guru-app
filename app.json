@@ -4,7 +4,7 @@
     "slug": "presensi-guru-bintangjuara",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "backgroundColor": "#1565C0"
     },
