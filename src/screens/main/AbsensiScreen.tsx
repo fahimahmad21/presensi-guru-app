@@ -15,7 +15,7 @@ import { useNavigation } from "@react-navigation/native";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import MapView, { Marker, Circle, PROVIDER_DEFAULT } from "react-native-maps";
 import * as Location from "expo-location";
-import * as ImagePicker from "expo-image-picker";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import { useAuth } from "../../context/AuthContext";
 import { AbsentInfo, AbsentCheck, AbsentHistoryItem, MainTabParamList } from "../../types";
 import {
@@ -155,6 +155,8 @@ export default function AbsensiScreen() {
   }>({ visible: false, type: "success", title: "", msg: "" });
 
   const mapRef = useRef<MapView>(null);
+  const cameraRef = useRef<CameraView>(null);
+  const [camPermission, requestCamPermission] = useCameraPermissions();
 
   const loadData = useCallback(async () => {
     try {
@@ -196,7 +198,7 @@ export default function AbsensiScreen() {
   const checkOutTime = todayOUT ? formatJam(todayOUT.date) : null;
 
   const firstName = user?.name?.split(" ")[0] ?? "Guru";
-  const sapaanGender = user?.gender === 'L' ? 'Bapak' : user?.gender === 'P' ? 'Ibu' : '';
+  const sapaanGender = user?.gender === 'male' ? 'Bapak' : user?.gender === 'female' ? 'Ibu' : '';
   const today = new Date().toLocaleDateString("id-ID", {
     weekday: "long",
     day: "numeric",
@@ -276,27 +278,25 @@ export default function AbsensiScreen() {
   };
 
   // ── MODAL KAMERA ──────────────────────────────────────────────────────────
-  const bukaKamera = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
+  const ambilFoto = async () => {
+    if (!cameraRef.current) return;
+    try {
+      const photo = await cameraRef.current.takePictureAsync({
+        base64: true,
+        quality: 0.7,
+        exif: false,
+      });
+      if (photo) {
+        setFotoUri(photo.uri);
+        setFotoBase64(photo.base64 ?? null);
+      }
+    } catch {
       setAlert({
         visible: true,
-        type: "warning",
-        title: "Izin Kamera",
-        msg: "Izin kamera diperlukan untuk absensi.",
+        type: "error",
+        title: "Gagal",
+        msg: "Tidak dapat mengambil foto.",
       });
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-      base64: true,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setFotoUri(result.assets[0].uri);
-      setFotoBase64(result.assets[0].base64 ?? null);
     }
   };
 
@@ -419,19 +419,29 @@ export default function AbsensiScreen() {
                 </Text>
               </View>
             </View>
-            <TouchableOpacity
-              style={styles.checkBtn}
-              onPress={bukaModalLokasi}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="location" size={20} color="#fff" />
-              <View>
-                <Text style={styles.checkBtnText}>Absen Via Lokasi</Text>
-                <Text style={styles.checkBtnSub}>
-                  {aksiAbsen === "masuk" ? "Absen Masuk" : "Absen Keluar"}
-                </Text>
+            {checkOutTime ? (
+              <View style={styles.checkBtn}>
+                <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                <View>
+                  <Text style={styles.checkBtnText}>Absensi Selesai</Text>
+                  <Text style={styles.checkBtnSub}>Sampai Jumpa Besok Hari</Text>
+                </View>
               </View>
-            </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.checkBtn}
+                onPress={bukaModalLokasi}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="location" size={20} color="#fff" />
+                <View>
+                  <Text style={styles.checkBtnText}>Absen Via Lokasi</Text>
+                  <Text style={styles.checkBtnSub}>
+                    {aksiAbsen === "masuk" ? "Absen Masuk" : "Absen Keluar"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* ── INFO SHIFT ── */}
@@ -530,14 +540,9 @@ export default function AbsensiScreen() {
                     <View style={styles.histCol}>
                       {g.masuk && masukSc ? (
                         <>
-                          <View style={styles.histJamRow}>
-                            <Text style={[styles.histJam, { color: masukSc.color }]}>
-                              {formatJam(g.masuk.date)}
-                            </Text>
-                            {g.masuk.image && (
-                              <Ionicons name="camera" size={11} color={colors.primary} style={styles.histJamIcon} />
-                            )}
-                          </View>
+                          <Text style={[styles.histJam, { color: masukSc.color }]}>
+                            {formatJam(g.masuk.date)}
+                          </Text>
                           <View style={[styles.chip, { backgroundColor: masukSc.bg }]}>
                             <Text style={[styles.chipText, { color: masukSc.color }]}>
                               {masukSc.label}
@@ -558,14 +563,9 @@ export default function AbsensiScreen() {
                     <View style={styles.histCol}>
                       {g.pulang && pulangSc ? (
                         <>
-                          <View style={styles.histJamRow}>
-                            <Text style={[styles.histJam, { color: pulangSc.color }]}>
-                              {formatJam(g.pulang.date)}
-                            </Text>
-                            {g.pulang.image && (
-                              <Ionicons name="camera" size={11} color={colors.primary} style={styles.histJamIcon} />
-                            )}
-                          </View>
+                          <Text style={[styles.histJam, { color: pulangSc.color }]}>
+                            {formatJam(g.pulang.date)}
+                          </Text>
                           <View style={[styles.chip, { backgroundColor: pulangSc.bg }]}>
                             <Text style={[styles.chipText, { color: pulangSc.color }]}>
                               {pulangSc.label}
@@ -736,49 +736,29 @@ export default function AbsensiScreen() {
       {/* ═══════ MODAL KAMERA ═══════ */}
       <Modal
         visible={showKamera}
-        transparent
         animationType="slide"
         onRequestClose={() => !submitting && setShowKamera(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, Shadow.md]}>
-            <Text style={styles.modalTitle}>Foto Wajah</Text>
-            <Text style={styles.modalSub}>
-              Ambil foto sebagai bukti kehadiran
-            </Text>
-
-            {fotoUri ? (
-              <Image source={{ uri: fotoUri }} style={styles.fotoPreview} />
-            ) : (
-              <View style={styles.fotoPlaceholder}>
-                <Ionicons
-                  name="person-circle-outline"
-                  size={72}
-                  color={colors.textHint}
-                />
-                <Text style={styles.fotoPlaceholderText}>Belum ada foto</Text>
+        <View style={styles.kameraRoot}>
+          {fotoUri ? (
+            /* ── PREVIEW FOTO ── */
+            <>
+              <Image source={{ uri: fotoUri }} style={styles.kameraFill} />
+              <View style={styles.kameraHeader}>
+                <Text style={styles.kameraJudul}>Preview Foto</Text>
               </View>
-            )}
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[
-                  styles.konfirmasiBtn,
-                  { backgroundColor: colors.textSecondary },
-                ]}
-                onPress={bukaKamera}
-                disabled={submitting}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="camera" size={18} color="#fff" />
-                <Text style={styles.konfirmBtnText}>
-                  {fotoUri ? "Ambil Ulang" : "Buka Kamera"}
-                </Text>
-              </TouchableOpacity>
-
-              {fotoBase64 && (
+              <View style={styles.kameraBottom}>
                 <TouchableOpacity
-                  style={[styles.konfirmasiBtn, submitting && { opacity: 0.7 }]}
+                  style={styles.kameraAksiBtn}
+                  onPress={() => { setFotoUri(null); setFotoBase64(null); }}
+                  disabled={submitting}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="refresh" size={18} color="#fff" />
+                  <Text style={styles.kameraAksiBtnText}>Ambil Ulang</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.kameraAksiBtn, styles.kameraAksiBtnPrimary, submitting && { opacity: 0.7 }]}
                   onPress={konfirmasiAbsen}
                   disabled={submitting}
                   activeOpacity={0.85}
@@ -787,29 +767,56 @@ export default function AbsensiScreen() {
                     <ActivityIndicator color="#fff" />
                   ) : (
                     <>
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={18}
-                        color="#fff"
-                      />
-                      <Text style={styles.konfirmBtnText}>
-                        Konfirmasi Absen{" "}
-                        {aksiAbsen === "masuk" ? "Masuk" : "Keluar"}
+                      <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                      <Text style={styles.kameraAksiBtnText}>
+                        Konfirmasi Absen {aksiAbsen === "masuk" ? "Masuk" : "Keluar"}
                       </Text>
                     </>
                   )}
                 </TouchableOpacity>
-              )}
-
-              <TouchableOpacity
-                style={styles.batalBtn}
-                onPress={() => setShowKamera(false)}
-                disabled={submitting}
-              >
-                <Text style={styles.batalBtnText}>Batal</Text>
+              </View>
+            </>
+          ) : !camPermission?.granted ? (
+            /* ── MINTA IZIN KAMERA ── */
+            <View style={styles.kameraPermWrap}>
+              <Ionicons name="camera-outline" size={64} color="rgba(255,255,255,0.5)" />
+              <Text style={styles.kameraPermText}>
+                Izin kamera diperlukan untuk foto absensi
+              </Text>
+              <TouchableOpacity style={styles.kameraPermBtn} onPress={requestCamPermission}>
+                <Text style={styles.kameraPermBtnText}>Berikan Izin Kamera</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          ) : (
+            /* ── LIVE KAMERA ── */
+            <>
+              <CameraView
+                ref={cameraRef}
+                style={styles.kameraFill}
+                facing="front"
+              />
+              <View style={styles.kameraHeader}>
+                <Text style={styles.kameraJudul}>Foto Wajah</Text>
+                <Text style={styles.kameraSubJudul}>Pastikan wajah terlihat jelas</Text>
+              </View>
+              <View style={styles.kameraBottom}>
+                <TouchableOpacity style={styles.shutterBtn} onPress={ambilFoto} activeOpacity={0.8}>
+                  <View style={styles.shutterInner} />
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+
+          {/* Tombol kembali */}
+          {!submitting && (
+            <TouchableOpacity
+              style={styles.kameraBackBtn}
+              onPress={() => setShowKamera(false)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="arrow-back" size={22} color="#fff" />
+            </TouchableOpacity>
+          )}
         </View>
       </Modal>
 
@@ -921,6 +928,9 @@ const getStyles = (colors: ColorPalette) => StyleSheet.create({
     paddingVertical: 15,
     borderRadius: 14,
   },
+  checkBtnDone: {
+    backgroundColor: colors.successLight,
+  },
   checkBtnText: {
     color: "#fff",
     fontSize: FontSize.md,
@@ -1013,8 +1023,6 @@ const getStyles = (colors: ColorPalette) => StyleSheet.create({
   histColDivider: { width: 1, alignSelf: "stretch", backgroundColor: colors.border },
   chip: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20 },
   chipText: { fontSize: FontSize.xs - 2, fontFamily: "Poppins_500Medium" },
-  histJamRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  histJamIcon: { marginTop: 1 },
   histJam: { fontSize: FontSize.md, fontFamily: "Poppins_700Bold" },
   histJamEmpty: {
     fontSize: FontSize.sm,
@@ -1110,28 +1118,102 @@ const getStyles = (colors: ColorPalette) => StyleSheet.create({
     fontFamily: "Poppins_400Regular",
   },
 
-  // Kamera
-  fotoPreview: {
-    width: "100%",
-    height: 220,
-    borderRadius: 16,
-    marginBottom: 14,
-    backgroundColor: colors.background,
+  // Kamera full-screen
+  kameraRoot: { flex: 1, backgroundColor: '#000' },
+  kameraFill: { ...StyleSheet.absoluteFillObject },
+  kameraHeader: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    paddingTop: 56,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
   },
-  fotoPlaceholder: {
-    width: "100%",
-    height: 180,
-    borderRadius: 16,
-    backgroundColor: colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 14,
+  kameraJudul: {
+    color: '#fff',
+    fontSize: FontSize.md,
+    fontFamily: 'Poppins_700Bold',
+  },
+  kameraSubJudul: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: FontSize.xs,
+    fontFamily: 'Poppins_400Regular',
+    marginTop: 2,
+  },
+  kameraBottom: {
+    position: 'absolute',
+    bottom: 0, left: 0, right: 0,
+    paddingBottom: 48,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    gap: 12,
+  },
+  shutterBtn: {
+    width: 72, height: 72,
+    borderRadius: 36,
+    borderWidth: 4,
+    borderColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shutterInner: {
+    width: 56, height: 56,
+    borderRadius: 28,
+    backgroundColor: '#fff',
+  },
+  kameraAksiBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    paddingVertical: 13,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    width: '100%',
   },
-  fotoPlaceholderText: {
+  kameraAksiBtnPrimary: { backgroundColor: colors.primary },
+  kameraAksiBtnText: {
+    color: '#fff',
     fontSize: FontSize.sm,
-    color: colors.textHint,
-    fontFamily: "Poppins_400Regular",
+    fontFamily: 'Poppins_600SemiBold',
+  },
+  kameraBackBtn: {
+    position: 'absolute',
+    top: 52, left: 16,
+    width: 38, height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  kameraPermWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    paddingHorizontal: 32,
+  },
+  kameraPermText: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: FontSize.sm,
+    fontFamily: 'Poppins_400Regular',
+    textAlign: 'center',
+  },
+  kameraPermBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  kameraPermBtnText: {
+    color: '#fff',
+    fontSize: FontSize.sm,
+    fontFamily: 'Poppins_600SemiBold',
   },
 
   modalActions: { gap: 8 },

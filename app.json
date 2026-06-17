@@ -13,20 +13,30 @@
         "backgroundColor": "#1565C0"
       },
       "package": "id.bintangjuara.presensi",
+      "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",
         "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.VIBRATE"
+        "android.permission.VIBRATE",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.CAMERA"
       ]
     },
     "plugins": [
       [
         "expo-notifications",
         {
+          "icon": "./assets/icon-notif.png",
           "color": "#1565C0"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Izin kamera diperlukan untuk foto absensi."
         }
       ],
       "expo-font",

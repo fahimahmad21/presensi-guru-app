@@ -111,11 +111,16 @@ export interface AbsentHistoryDetail extends Omit<AbsentHistoryItem, 'score'> {
 }
 
 export interface AbsentReportItem {
-  date:   string; // "YYYY-MM-DD"
-  score:  number;
-  start:  string; // "HH:MM"
-  finish: string; // "HH:MM"
-  status: string; // "CM/PT", "T/PC", dll
+  day?:    string;
+  date:    string; // "YYYY-MM-DD"
+  time?:   string;
+  work?:   string;
+  score:   number;
+  device?: number;
+  total?:  number;
+  start:   string; // "HH:MM"
+  finish:  string; // "HH:MM"
+  status:  string; // "CM/PT", "T/PC", dll
 }
 
 // Score code mapping

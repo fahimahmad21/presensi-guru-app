@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const isExpoGo = Constants.appOwnership === 'expo';
+const isExpoGo = Constants.executionEnvironment === 'storeClient';
 import { getAbsentCheck, getAbsentReport } from './absentService';
 import { getPermitHistory } from './permitService';
 
@@ -37,20 +37,28 @@ export async function mintaIzinNotifikasi(): Promise<boolean> {
   return status === 'granted';
 }
 
-// Jadwalkan reminder harian 06:30 — hanya tampil jika belum absen
+// TEST ONLY — hapus setelah selesai testing notifikasi
+export async function testNotifikasi() {
+  if (isExpoGo) return;
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Test Notifikasi ✅',
+      body:  'Sistem notifikasi berjalan dengan baik.',
+      data:  { tipe: 'test' },
+    },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 10 },
+  });
+}
+
+// Jadwalkan reminder harian — cancel semua dulu agar tidak duplikat
 export async function jadwalkanReminderHarian() {
   if (isExpoGo) return;
 
-  const jadwal = await Notifications.getAllScheduledNotificationsAsync();
-  for (const n of jadwal) {
-    if ((n.content.data as Record<string, unknown>)?.tipe === 'reminder_absen') {
-      await Notifications.cancelScheduledNotificationAsync(n.identifier);
-    }
-  }
+  await Notifications.cancelAllScheduledNotificationsAsync();
 
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: '⏰ Belum Absen Hari Ini',
+      title: 'Belum Absen Hari Ini',
       body:  'Jangan lupa melakukan presensi masuk sebelum jam 07:30.',
       data:  { tipe: 'reminder_absen' },
     },
@@ -58,6 +66,19 @@ export async function jadwalkanReminderHarian() {
       type:    Notifications.SchedulableTriggerInputTypes.DAILY,
       hour:    6,
       minute:  30,
+    },
+  });
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Jangan Lupa Absen Pulang',
+      body:  'Pastikan Anda sudah melakukan presensi keluar sebelum meninggalkan sekolah.',
+      data:  { tipe: 'reminder_pulang' },
+    },
+    trigger: {
+      type:    Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour:    15,
+      minute:  0,
     },
   });
 }

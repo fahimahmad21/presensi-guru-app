@@ -25,6 +25,10 @@ export function updatePermit(id: string, data: {
   return apiClient.put(`/permit/${id}`, data);
 }
 
+export function deletePermit(id: string) {
+  return apiClient.delete<{ status: boolean; message: string; data: string }>(`/permit/${id}`);
+}
+
 export function getPermitHistory(start = 0, length = 20) {
   return apiClient.get<DataTableResponse<PermitHistoryItem>>(`/permit/history?draw=1&start=${start}&length=${length}`);
 }

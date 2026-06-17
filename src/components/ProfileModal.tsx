@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Modal,
   View,
@@ -15,7 +15,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   Linking,
+  Animated,
+  FlatList,
+  SafeAreaView,
 } from "react-native";
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const WIN_H = Dimensions.get("window").height;
 import { Ionicons } from "@expo/vector-icons";
@@ -25,9 +29,9 @@ import { useTheme } from "../context/ThemeContext";
 import { ColorPalette } from "../constants/Colors";
 import { FontSize, Radius, Shadow } from "../constants/Theme";
 import AlertModal from "./AlertModal";
-import { AbsentInfo } from "../types";
+import { AbsentInfo, CountryItem } from "../types";
 import { getAbsentInfo } from "../services/absentService";
-import { getCountries, updatePassword } from "../services/authService";
+import { getCountries, updateProfile, updatePassword } from "../services/authService";
 import {
   NotifSettings,
   getNotifSettings,
@@ -204,6 +208,465 @@ function UbahKataSandiSheet({ visible, onClose, onSuccess }: UbahSandiProps) {
   );
 }
 
+// ─── FloatInput ──────────────────────────────────────────────────────────────
+
+function FloatInput({
+  label, value, onChangeText, onClear, icon,
+  keyboardType, autoCapitalize, multiline = false,
+  editable = true, onPress, prefix,
+}: {
+  label: string; value: string;
+  onChangeText?: (t: string) => void;
+  onClear?: () => void;
+  icon: string;
+  keyboardType?: any; autoCapitalize?: any;
+  multiline?: boolean; editable?: boolean;
+  onPress?: () => void; prefix?: string;
+}) {
+  const { colors } = useTheme();
+  const [focused, setFocused] = useState(false);
+  const anim = useRef(new Animated.Value(value ? 1 : 0)).current;
+  const active = focused || !!value;
+
+  useEffect(() => {
+    Animated.timing(anim, { toValue: active ? 1 : 0, duration: 150, useNativeDriver: false }).start();
+  }, [active]);
+
+  const H    = multiline ? 106 : 62;
+  const BTOP = 12;
+  const LL   = 44; // label left: 14 (pad) + 18 (icon) + 8 (gap) + 4
+
+  const inactiveTop = multiline ? BTOP + 10 : BTOP + (H - BTOP) / 2 - 8;
+  const labelTop   = anim.interpolate({ inputRange: [0, 1], outputRange: [inactiveTop, 3] });
+  const labelSize  = anim.interpolate({ inputRange: [0, 1], outputRange: [14, 11] });
+  const labelColor = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [colors.textHint, focused ? colors.primary : colors.textTertiary],
+  });
+
+  const hasClear = !!value && !!onClear;
+
+  const inner = (
+    <View style={{ height: H, marginBottom: 20 }}>
+      {/* Border frame */}
+      <View style={{
+        position: 'absolute', top: BTOP, left: 0, right: 0, bottom: 0,
+        borderWidth: focused ? 2 : 1.5,
+        borderColor: focused ? colors.primary : colors.border,
+        borderRadius: Radius.md,
+        backgroundColor: colors.background,
+      }} />
+      {/* Floating label */}
+      <Animated.Text style={{
+        position: 'absolute', left: LL, top: labelTop,
+        fontSize: labelSize, color: labelColor,
+        fontFamily: 'Poppins_400Regular',
+        backgroundColor: colors.background,
+        paddingHorizontal: 3, lineHeight: 16, zIndex: 1,
+      }}>
+        {label}
+      </Animated.Text>
+      {/* Content row */}
+      <View style={{
+        position: 'absolute', top: BTOP, left: 0, right: 0, bottom: 0,
+        flexDirection: 'row',
+        alignItems: multiline ? 'flex-start' : 'center',
+        paddingHorizontal: 14,
+        paddingTop: multiline ? 12 : 0,
+      }}>
+        <Ionicons
+          name={icon as any} size={18}
+          color={focused ? colors.primary : colors.textHint}
+          style={{ marginRight: 8, marginTop: multiline ? 2 : 0 }}
+        />
+        {prefix ? (
+          <View style={{ paddingHorizontal: 7, paddingVertical: 3, backgroundColor: colors.border, borderRadius: 5, marginRight: 8 }}>
+            <Text style={{ fontSize: 12, fontFamily: 'Poppins_600SemiBold', color: colors.textSecondary }}>{prefix}</Text>
+          </View>
+        ) : null}
+        {editable ? (
+          <TextInput
+            style={{
+              flex: 1, fontSize: FontSize.sm, fontFamily: 'Poppins_400Regular',
+              color: colors.textPrimary,
+              textAlignVertical: multiline ? 'top' : 'center',
+              alignSelf: multiline ? 'stretch' : 'center',
+            }}
+            value={value}
+            onChangeText={onChangeText}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            keyboardType={keyboardType}
+            autoCapitalize={autoCapitalize}
+            multiline={multiline}
+            placeholder=""
+            placeholderTextColor="transparent"
+          />
+        ) : (
+          <Text style={{
+            flex: 1, fontSize: FontSize.sm, fontFamily: 'Poppins_400Regular',
+            color: value ? colors.textPrimary : 'transparent',
+          }} numberOfLines={1}>
+            {value || ' '}
+          </Text>
+        )}
+        {hasClear ? (
+          <TouchableOpacity onPress={onClear} style={{ padding: 6 }} activeOpacity={0.7}>
+            <Ionicons name="close-circle" size={18} color={colors.textHint} />
+          </TouchableOpacity>
+        ) : (!editable ? (
+          <Ionicons name="chevron-forward" size={16} color={colors.textHint} />
+        ) : null)}
+      </View>
+    </View>
+  );
+
+  if (!editable && onPress) {
+    return <TouchableOpacity onPress={onPress} activeOpacity={0.8}>{inner}</TouchableOpacity>;
+  }
+  return inner;
+}
+
+// ─── CountryPickerModal ───────────────────────────────────────────────────────
+
+function CountryPickerModal({ visible, onClose, countries, selectedId, onSelect }: {
+  visible: boolean; onClose: () => void;
+  countries: CountryItem[]; selectedId: number | null;
+  onSelect: (c: CountryItem) => void;
+}) {
+  const { colors } = useTheme();
+  const [search, setSearch] = useState('');
+
+  useEffect(() => { if (!visible) setSearch(''); }, [visible]);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return countries;
+    const q = search.toLowerCase();
+    return countries.filter(c =>
+      (typeof c.name === 'string' && c.name.toLowerCase().includes(q)) ||
+      (typeof c.phone === 'string' && c.phone.includes(q)),
+    );
+  }, [countries, search]);
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        {/* Header */}
+        <View style={{
+          flexDirection: 'row', alignItems: 'center',
+          paddingHorizontal: 16, paddingVertical: 14,
+          borderBottomWidth: 1, borderBottomColor: colors.border,
+          backgroundColor: colors.white,
+        }}>
+          <TouchableOpacity onPress={onClose} style={{ padding: 4, marginRight: 12 }}>
+            <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={{ fontSize: FontSize.md, fontFamily: 'Poppins_700Bold', color: colors.textPrimary }}>
+            Pilih Negara
+          </Text>
+        </View>
+        {/* Search */}
+        <View style={{
+          flexDirection: 'row', alignItems: 'center', gap: 8,
+          margin: 12, paddingHorizontal: 14, paddingVertical: 10,
+          backgroundColor: colors.white, borderRadius: Radius.md,
+          borderWidth: 1.5, borderColor: colors.border,
+        }}>
+          <Ionicons name="search-outline" size={18} color={colors.textHint} />
+          <TextInput
+            style={{ flex: 1, fontSize: FontSize.sm, fontFamily: 'Poppins_400Regular', color: colors.textPrimary }}
+            placeholder="Cari negara atau kode telepon..."
+            placeholderTextColor={colors.textHint}
+            value={search}
+            onChangeText={setSearch}
+            autoFocus
+          />
+          {!!search && (
+            <TouchableOpacity onPress={() => setSearch('')}>
+              <Ionicons name="close-circle" size={18} color={colors.textHint} />
+            </TouchableOpacity>
+          )}
+        </View>
+        {/* List */}
+        <FlatList
+          data={filtered}
+          keyExtractor={c => String(c.id)}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          ItemSeparatorComponent={() => (
+            <View style={{ height: 1, backgroundColor: colors.background, marginLeft: 16 }} />
+          )}
+          renderItem={({ item: c }) => {
+            const sel = c.id === selectedId;
+            return (
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row', alignItems: 'center',
+                  paddingHorizontal: 16, paddingVertical: 14,
+                  backgroundColor: sel ? colors.primaryXLight : colors.white,
+                }}
+                onPress={() => { onSelect(c); onClose(); }}
+                activeOpacity={0.7}
+              >
+                <Text style={{
+                  flex: 1, fontSize: FontSize.sm, fontFamily: 'Poppins_400Regular',
+                  color: sel ? colors.primary : colors.textPrimary,
+                }}>
+                  {c.name}
+                </Text>
+                {c.phone ? (
+                  <Text style={{ fontSize: FontSize.xs, fontFamily: 'Poppins_500Medium', color: colors.textTertiary, marginRight: sel ? 8 : 0 }}>
+                    +{c.phone}
+                  </Text>
+                ) : null}
+                {sel && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
+              </TouchableOpacity>
+            );
+          }}
+          ListEmptyComponent={
+            <Text style={{ textAlign: 'center', padding: 32, fontSize: FontSize.sm, fontFamily: 'Poppins_400Regular', color: colors.textHint }}>
+              Tidak ditemukan
+            </Text>
+          }
+        />
+      </SafeAreaView>
+    </Modal>
+  );
+}
+
+// ─── Edit Profil sheet ───────────────────────────────────────────────────────
+
+interface EditProfilProps {
+  visible:    boolean;
+  onClose:    () => void;
+  onSuccess:  () => void;
+  countries:  CountryItem[];
+}
+
+function EditProfilSheet({ visible, onClose, onSuccess, countries }: EditProfilProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
+  const { user } = useAuth();
+
+  const [nama,              setNama]              = useState('');
+  const [email,             setEmail]             = useState('');
+  const [telepon,           setTelepon]           = useState('');
+  const [gender,            setGender]            = useState('');
+  const [place,             setPlace]             = useState('');
+  const [birthdayDate,      setBirthdayDate]      = useState<Date | null>(null);
+  const [address,           setAddress]           = useState('');
+  const [selectedCountryId, setSelectedCountryId] = useState<number | null>(null);
+  const [showCountryModal,  setShowCountryModal]  = useState(false);
+  const [showDatePicker,    setShowDatePicker]    = useState(false);
+  const [loading,           setLoading]           = useState(false);
+  const [alertErr,          setAlertErr]          = useState('');
+  const [alertOk,           setAlertOk]           = useState(false);
+
+  const selectedCountry = useMemo(
+    () => countries.find(c => c.id === selectedCountryId) ?? null,
+    [countries, selectedCountryId],
+  );
+
+  const birthdayDisplay = useMemo(() =>
+    birthdayDate
+      ? birthdayDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+      : '',
+    [birthdayDate],
+  );
+
+  const birthdayApi = useMemo(() =>
+    birthdayDate
+      ? `${birthdayDate.getFullYear()}-${String(birthdayDate.getMonth() + 1).padStart(2, '0')}-${String(birthdayDate.getDate()).padStart(2, '0')}`
+      : '',
+    [birthdayDate],
+  );
+
+  useEffect(() => {
+    if (!visible) return;
+    setNama(user?.name ?? '');
+    setEmail(user?.email ?? '');
+    setTelepon(user?.phone ? String(user.phone) : '');
+    setGender(user?.gender ?? '');
+    setPlace(user?.place ?? '');
+    setBirthdayDate(user?.birthday ? new Date(user.birthday) : null);
+    setAddress(user?.address ?? '');
+    setSelectedCountryId(user?.country ?? null);
+    setShowCountryModal(false);
+    setShowDatePicker(false);
+    setAlertErr('');
+    setAlertOk(false);
+    setLoading(false);
+  }, [visible]);
+
+  const handleSimpan = async () => {
+    setAlertErr('');
+    if (!nama.trim()) { setAlertErr('Nama lengkap wajib diisi.'); return; }
+    setLoading(true);
+    try {
+      const cleaned = telepon.replace(/\D/g, '').replace(/^(62|0)/, '');
+      const res = await updateProfile({
+        name:     nama.trim()       || undefined,
+        email:    email.trim()      || undefined,
+        phone:    cleaned           || undefined,
+        country:  selectedCountryId ?? undefined,
+        gender:   gender            || undefined,
+        place:    place.trim()      || undefined,
+        birthday: birthdayApi       || undefined,
+        address:  address.trim()    || undefined,
+      });
+      if ((res as any).data?.status === false) {
+        setAlertErr((res as any).data?.message ?? 'Gagal memperbarui profil.'); return;
+      }
+      onSuccess();
+      setAlertOk(true);
+    } catch (e: any) {
+      setAlertErr(e?.response?.data?.message ?? e?.message ?? 'Gagal memperbarui profil.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const countryLabel = selectedCountry
+    ? `${selectedCountry.phone ? `+${selectedCountry.phone}  ` : ''}${selectedCountry.name}`
+    : '';
+
+  return (
+    <>
+      <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            {/* Header */}
+            <View style={{
+              flexDirection: 'row', alignItems: 'center',
+              paddingHorizontal: 16, paddingVertical: 14,
+              borderBottomWidth: 1, borderBottomColor: colors.border,
+              backgroundColor: colors.white,
+            }}>
+              <TouchableOpacity onPress={onClose} style={{ padding: 4, marginRight: 12 }}>
+                <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
+              </TouchableOpacity>
+              <Text style={{ flex: 1, fontSize: FontSize.md, fontFamily: 'Poppins_700Bold', color: colors.textPrimary }}>
+                Edit Profil
+              </Text>
+              <TouchableOpacity
+                style={[styles.simpanBtn, { paddingVertical: 8, paddingHorizontal: 18, marginTop: 0 }, loading && styles.simpanBtnDisabled]}
+                onPress={handleSimpan} disabled={loading} activeOpacity={0.85}
+              >
+                {loading
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={styles.simpanBtnText}>Simpan</Text>}
+              </TouchableOpacity>
+            </View>
+
+            {/* Form */}
+            <ScrollView
+              contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 32 }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <FloatInput
+                label="Nama Lengkap" value={nama} icon="person-outline"
+                autoCapitalize="words"
+                onChangeText={t => { setNama(t); setAlertErr(''); }}
+                onClear={() => { setNama(''); setAlertErr(''); }}
+              />
+              <FloatInput
+                label="Email" value={email} icon="mail-outline"
+                keyboardType="email-address" autoCapitalize="none"
+                onChangeText={t => { setEmail(t); setAlertErr(''); }}
+                onClear={() => { setEmail(''); setAlertErr(''); }}
+              />
+              <FloatInput
+                label="Negara / Kode Telepon" value={countryLabel} icon="globe-outline"
+                editable={false}
+                onPress={() => setShowCountryModal(true)}
+                onClear={() => setSelectedCountryId(null)}
+              />
+              <FloatInput
+                label="No. Telepon" value={telepon} icon="call-outline"
+                keyboardType="number-pad"
+                prefix={selectedCountry?.phone ? `+${selectedCountry.phone}` : undefined}
+                onChangeText={t => { setTelepon(t.replace(/[^0-9]/g, '')); setAlertErr(''); }}
+                onClear={() => { setTelepon(''); setAlertErr(''); }}
+              />
+
+              <Text style={[styles.fieldLabel, { marginBottom: 10 }]}>JENIS KELAMIN</Text>
+              <View style={styles.genderRow}>
+                <TouchableOpacity style={[styles.genderBtn, gender === 'male' && styles.genderBtnActive]}
+                  onPress={() => setGender('male')} activeOpacity={0.8}>
+                  <Ionicons name="male-outline" size={16} color={gender === 'male' ? '#fff' : colors.textSecondary} />
+                  <Text style={[styles.genderBtnText, gender === 'male' && styles.genderBtnTextActive]}>Laki-laki</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.genderBtn, gender === 'female' && styles.genderBtnActive]}
+                  onPress={() => setGender('female')} activeOpacity={0.8}>
+                  <Ionicons name="female-outline" size={16} color={gender === 'female' ? '#fff' : colors.textSecondary} />
+                  <Text style={[styles.genderBtnText, gender === 'female' && styles.genderBtnTextActive]}>Perempuan</Text>
+                </TouchableOpacity>
+              </View>
+
+              <FloatInput
+                label="Tempat Lahir" value={place} icon="location-outline"
+                onChangeText={t => { setPlace(t); setAlertErr(''); }}
+                onClear={() => { setPlace(''); setAlertErr(''); }}
+              />
+              <FloatInput
+                label="Tanggal Lahir" value={birthdayDisplay} icon="calendar-outline"
+                editable={false}
+                onPress={() => setShowDatePicker(true)}
+                onClear={() => setBirthdayDate(null)}
+              />
+              <FloatInput
+                label="Alamat" value={address} icon="home-outline"
+                multiline
+                onChangeText={t => { setAddress(t); setAlertErr(''); }}
+                onClear={() => { setAddress(''); setAlertErr(''); }}
+              />
+
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </Modal>
+
+      <CountryPickerModal
+        visible={showCountryModal}
+        onClose={() => setShowCountryModal(false)}
+        countries={countries}
+        selectedId={selectedCountryId}
+        onSelect={c => setSelectedCountryId(c.id)}
+      />
+
+      <AlertModal
+        visible={alertOk}
+        type="success"
+        title="Profil Diperbarui"
+        message="Data profil Anda berhasil disimpan."
+        onClose={() => { setAlertOk(false); onClose(); }}
+      />
+
+      <AlertModal
+        visible={!!alertErr}
+        type="error"
+        title="Gagal Menyimpan"
+        message={alertErr}
+        onClose={() => setAlertErr('')}
+      />
+
+      {showDatePicker && (
+        <DateTimePicker
+          value={birthdayDate ?? new Date(2000, 0, 1)}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={(_event, date) => {
+            setShowDatePicker(false);
+            if (date) setBirthdayDate(date);
+          }}
+          maximumDate={new Date()}
+        />
+      )}
+    </>
+  );
+}
+
 // ─── Pengaturan Notifikasi sheet ─────────────────────────────────────────────
 
 interface PengaturanProps {
@@ -217,7 +680,7 @@ const NOTIF_ROWS: {
   label: string;
   desc: string;
 }[] = [
-  { key: 'reminderHarian',  icon: 'alarm-outline',         label: 'Pengingat Absen Harian',   desc: 'Push notification pukul 06:30 setiap hari kerja' },
+  { key: 'reminderHarian',  icon: 'alarm-outline',         label: 'Pengingat Absen Harian',   desc: 'Push notification pukul 06:30 (masuk) dan 15:00 (pulang) setiap hari' },
   { key: 'statusIzin',      icon: 'document-text-outline', label: 'Status Pengajuan Izin',     desc: 'Notifikasi saat izin disetujui atau ditolak' },
   { key: 'peringatanTelat', icon: 'time-outline',          label: 'Peringatan Terlambat',      desc: 'Notifikasi saat tercatat terlambat masuk' },
   { key: 'peringatanNoOut', icon: 'log-out-outline',       label: 'Pengingat Lupa Checkout',   desc: 'Notifikasi saat tidak ada catatan absen pulang' },
@@ -453,20 +916,22 @@ interface Props {
 }
 
 export default function ProfileModal({ visible, onClose, onLogout }: Props) {
-  const { user, updateFoto } = useAuth();
+  const { user, updateFoto, refreshProfile } = useAuth();
   const { colors, isDark, toggleTheme } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
 
   const [absentInfo,      setAbsentInfo]      = useState<AbsentInfo | null>(null);
-  const [dialCode,        setDialCode]        = useState<string>('');
+  const [countries,       setCountries]       = useState<CountryItem[]>([]);
   const [infoLoading,     setInfoLoading]     = useState(false);
   const [uploadLoading,   setUploadLoading]   = useState(false);
   const [showUbahSandi,       setShowUbahSandi]       = useState(false);
   const [showPengaturanNotif, setShowPengaturanNotif] = useState(false);
   const [showBantuan,         setShowBantuan]         = useState(false);
+  const [showEditProfil,      setShowEditProfil]      = useState(false);
   const [alertKonfirmasi, setAlertKonfirmasi] = useState(false);
   const [alertFoto,       setAlertFoto]       = useState({ visible: false, type: 'success' as 'success' | 'error', msg: '' });
   const [alertSandi,      setAlertSandi]      = useState(false);
+  const [alertEditOk,     setAlertEditOk]     = useState(false);
 
   const firstName = user?.name?.split(' ')[0] ?? 'G';
 
@@ -475,20 +940,21 @@ export default function ProfileModal({ visible, onClose, onLogout }: Props) {
     setInfoLoading(true);
     Promise.all([
       getAbsentInfo().then(r => r.data.data).catch(() => null),
-      user?.country
-        ? getCountries()
-            .then(r => {
-              const found = (r.data.data ?? []).find(c => c.id === user.country);
-              return found ? `+${found.phone}` : '';
-            })
-            .catch(() => '')
-        : Promise.resolve(''),
-    ]).then(([info, dc]) => {
+      countries.length === 0
+        ? getCountries().then(r => r.data.data ?? []).catch(() => [])
+        : Promise.resolve(countries),
+    ]).then(([info, ctrs]) => {
       setAbsentInfo(info as AbsentInfo | null);
-      setDialCode(dc as string);
+      if ((ctrs as CountryItem[]).length > 0) setCountries(ctrs as CountryItem[]);
       setInfoLoading(false);
     });
   }, [visible]);
+
+  const dialCode = useMemo(() => {
+    if (!user?.country || countries.length === 0) return '';
+    const found = countries.find(c => c.id === user.country);
+    return found ? `+${found.phone}` : '';
+  }, [user?.country, countries]);
 
   const phoneDisplay = useMemo(() => {
     if (!user?.phone) return '-';
@@ -603,7 +1069,13 @@ export default function ProfileModal({ visible, onClose, onLogout }: Props) {
               <View style={[styles.infoCard, Shadow.sm]}>
                 <View style={styles.infoCardTitleRow}>
                   <Text style={styles.infoCardTitle}>Informasi Akun</Text>
-                  {infoLoading && <ActivityIndicator size="small" color={colors.primary} />}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    {infoLoading && <ActivityIndicator size="small" color={colors.primary} />}
+                    <TouchableOpacity style={styles.editProfilBtn} onPress={() => setShowEditProfil(true)} activeOpacity={0.7}>
+                      <Ionicons name="pencil-outline" size={14} color={colors.primary} />
+                      <Text style={styles.editProfilBtnText}>Edit</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 <View style={styles.infoRow}>
@@ -701,6 +1173,14 @@ export default function ProfileModal({ visible, onClose, onLogout }: Props) {
         </View>
       </Modal>
 
+      {/* Edit Profil sheet */}
+      <EditProfilSheet
+        visible={showEditProfil}
+        onClose={() => setShowEditProfil(false)}
+        onSuccess={() => { refreshProfile(); setAlertEditOk(true); }}
+        countries={countries}
+      />
+
       {/* Bantuan sheet */}
       <BantuanSheet
         visible={showBantuan}
@@ -738,6 +1218,14 @@ export default function ProfileModal({ visible, onClose, onLogout }: Props) {
           { text: 'Keluar', onPress: () => { setAlertKonfirmasi(false); onClose(); onLogout(); } },
         ]}
         onClose={() => setAlertKonfirmasi(false)}
+      />
+
+      <AlertModal
+        visible={alertEditOk}
+        type="success"
+        title="Profil Diperbarui"
+        message="Data profil Anda berhasil disimpan."
+        onClose={() => setAlertEditOk(false)}
       />
 
       <AlertModal
@@ -894,6 +1382,23 @@ const getStyles = (colors: ColorPalette) => StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
   },
   gantiBtnText: { fontSize: FontSize.xs, fontFamily: 'Poppins_600SemiBold', color: colors.primary },
+
+  // Edit Profil button & gender toggle
+  editProfilBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 20, borderWidth: 1, borderColor: colors.primary,
+  },
+  editProfilBtnText: { fontSize: FontSize.xs, fontFamily: 'Poppins_600SemiBold', color: colors.primary },
+  genderRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  genderBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 13, borderRadius: Radius.md,
+    borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.background,
+  },
+  genderBtnActive:    { backgroundColor: colors.primary, borderColor: colors.primary },
+  genderBtnText:      { fontSize: FontSize.sm, fontFamily: 'Poppins_500Medium', color: colors.textSecondary },
+  genderBtnTextActive: { color: '#fff', fontFamily: 'Poppins_600SemiBold' },
 
   // Info card
   infoCard: { backgroundColor: colors.white, borderRadius: 16, marginHorizontal: 16, marginBottom: 12, padding: 16 },

@@ -5,10 +5,11 @@ export interface LoginResponse {
   status:  boolean;
   message: string;
   data: {
-    name:         string;
-    'Auth-Api':   string;
-    'Auth-Key':   string;
-    'Auth-Token': string;
+    name:          string;
+    'Auth-Api':    string;
+    'Auth-Key':    string;
+    'Auth-Token':  string;
+    'Auth-Socket': string;
   };
 }
 
@@ -48,7 +49,7 @@ export function getProfile() {
 }
 
 export function updateProfile(data: {
-  name?: string; email?: string; phone?: number;
+  name?: string; email?: string; phone?: number | string;
   place?: string; gender?: string; country?: number;
   birthday?: string; address?: string;
 }) {

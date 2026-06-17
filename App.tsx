@@ -15,7 +15,7 @@ import {
 import { AuthProvider } from './src/context/AuthContext';
 import { ThemeProvider } from './src/context/ThemeContext';
 import RootNavigator from './src/navigation';
-import { mintaIzinNotifikasi, jadwalkanReminderHarian } from './src/services/NotificationService';
+import { mintaIzinNotifikasi, jadwalkanReminderHarian, testNotifikasi } from './src/services/NotificationService';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -35,7 +35,10 @@ export default function App() {
   useEffect(() => {
     (async () => {
       const izin = await mintaIzinNotifikasi();
-      if (izin) await jadwalkanReminderHarian();
+      if (izin) {
+        await jadwalkanReminderHarian();
+        await testNotifikasi(); // TEST — hapus setelah selesai testing
+      }
     })();
 
     // Tangani ketika user klik notifikasi saat app closed/background

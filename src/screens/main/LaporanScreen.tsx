@@ -64,6 +64,33 @@ function normalizeDate(s: string): string {
   return s.split('T')[0].split(' ')[0];
 }
 
+function toScoreNumber(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function getAbsentDeviceScore(rec?: AbsentReportItem): number {
+  return toScoreNumber(rec?.device);
+}
+
+function getAbsentTotalScore(rec?: AbsentReportItem): number {
+  if (!rec) return 0;
+  if (rec.total !== undefined && rec.total !== null) return toScoreNumber(rec.total);
+  return toScoreNumber(rec.score) + getAbsentDeviceScore(rec);
+}
+
+function normalizeAbsentReportItem(rec: AbsentReportItem): AbsentReportItem {
+  const score = toScoreNumber(rec.score);
+  const device = getAbsentDeviceScore(rec);
+  return {
+    ...rec,
+    date: normalizeDate(rec.date),
+    score,
+    device,
+    total: rec.total !== undefined && rec.total !== null ? toScoreNumber(rec.total) : score + device,
+  };
+}
+
 function fmtDisplayDate(d: Date) {
   return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 }
@@ -110,28 +137,38 @@ function countRangeWorkdays(startStr: string, endStr: string): number {
 
 // Lite version: status codes are placeholders (CM/PT) — fast, no extra requests.
 // Used where only presence (ada/tidaknya start & finish) matters, e.g. the Tahunan grid.
+function historyDeviceScore(item?: AbsentHistoryItem | null): number {
+  const device = item?.device?.trim().toLowerCase();
+  if (!device) return 0;
+  if (device.includes('admin') || device.includes('manual')) return 0;
+  return 1;
+}
+
 function buildAbsentFromHistory(
   items: AbsentHistoryItem[],
   startDate: string,
   endDate: string,
 ): AbsentReportItem[] {
-  const byDate = new Map<string, { ins: string[]; outs: string[] }>();
+  const byDate = new Map<string, { ins: AbsentHistoryItem[]; outs: AbsentHistoryItem[] }>();
   for (const item of items) {
     const d = item.date.split('T')[0]; // "YYYY-MM-DD" (server stores local time)
     if (d < startDate || d > endDate) continue;
-    const t = item.date.split('T')[1]?.substring(0, 5) ?? ''; // "HH:MM"
     if (!byDate.has(d)) byDate.set(d, { ins: [], outs: [] });
-    if (item.type === 'IN') byDate.get(d)!.ins.push(t);
-    else byDate.get(d)!.outs.push(t);
+    if (item.type === 'IN') byDate.get(d)!.ins.push(item);
+    else byDate.get(d)!.outs.push(item);
   }
   const result: AbsentReportItem[] = [];
   for (const [date, { ins, outs }] of byDate.entries()) {
-    ins.sort(); outs.sort();
-    const start  = ins.length > 0 ? ins[0] : '';
-    const finish = outs.length > 0 ? outs[outs.length - 1] : '';
+    ins.sort((a, b) => a.date.localeCompare(b.date));
+    outs.sort((a, b) => a.date.localeCompare(b.date));
+    const inItem = ins[0];
+    const outItem = outs[outs.length - 1];
+    const start  = inItem ? inItem.date.split('T')[1]?.substring(0, 5) ?? '' : '';
+    const finish = outItem ? outItem.date.split('T')[1]?.substring(0, 5) ?? '' : '';
     const masukCode  = start  ? 'CM' : 'NO';
     const pulangCode = finish ? 'PT' : 'NO';
-    result.push({ date, score: 0, start, finish, status: `${masukCode}/${pulangCode}` });
+    const device = historyDeviceScore(inItem) + historyDeviceScore(outItem);
+    result.push({ date, score: 0, device, total: device, start, finish, status: `${masukCode}/${pulangCode}` });
   }
   return result;
 }
@@ -193,7 +230,9 @@ async function buildAbsentFromHistoryWithCodes(
     const finish = outItem ? outItem.date.split('T')[1]?.substring(0, 5) ?? '' : '';
     const masuk  = inItem  ? detailCache.get(inItem.id)!  : { code: 'NO', value: 0 };
     const pulang = outItem ? detailCache.get(outItem.id)! : { code: 'NO', value: 0 };
-    result.push({ date, score: masuk.value + pulang.value, start, finish, status: `${masuk.code}/${pulang.code}` });
+    const score = masuk.value + pulang.value;
+    const device = historyDeviceScore(inItem) + historyDeviceScore(outItem);
+    result.push({ date, score, device, total: score + device, start, finish, status: `${masuk.code}/${pulang.code}` });
   }
   return result;
 }
@@ -705,7 +744,7 @@ export default function LaporanScreen() {
     const useReport = !forceHistory && finish >= currentTodayStr;
     if (useReport) {
       const res = await getAbsentReport(start, finish);
-      return (res.data.data ?? []).map(r => ({ ...r, date: normalizeDate(r.date) }));
+      return (res.data.data ?? []).map(normalizeAbsentReportItem);
     }
     if (!historyCache.current) {
       const res = await getAllAbsentHistory();
@@ -750,7 +789,7 @@ export default function LaporanScreen() {
     const now = new Date();
     const [mStart, mEnd] = getMonthRange(now.getFullYear(), now.getMonth());
     getAbsentReport(mStart, mEnd)
-      .then(res => setCurMonthAbsent((res.data.data ?? []).map(r => ({ ...r, date: normalizeDate(r.date) }))))
+      .then(res => setCurMonthAbsent((res.data.data ?? []).map(normalizeAbsentReportItem)))
       .catch(() => {});
   }, [periode]);
 
@@ -809,7 +848,7 @@ export default function LaporanScreen() {
     const merged = new Map(absentMap);
     for (const r of curMonthAbsent) {
       const existing = merged.get(r.date);
-      if (existing) merged.set(r.date, { ...existing, status: r.status, score: r.score });
+      if (existing) merged.set(r.date, { ...existing, status: r.status, score: r.score, device: r.device, total: r.total });
     }
     return merged;
   }, [absentMap, curMonthAbsent]);
@@ -847,7 +886,13 @@ export default function LaporanScreen() {
   const selEffectiveAbsent = useMemo<AbsentReportItem | undefined>(() => {
     if (!selPresentAbsent) return undefined;
     if (!selReportAbsent)  return selPresentAbsent;
-    return { ...selPresentAbsent, status: selReportAbsent.status, score: selReportAbsent.score };
+    return {
+      ...selPresentAbsent,
+      status: selReportAbsent.status,
+      score: selReportAbsent.score,
+      device: selReportAbsent.device,
+      total: selReportAbsent.total,
+    };
   }, [selPresentAbsent, selReportAbsent]);
 
   // Status for selected day — use real report status to override hardcoded CM from history
@@ -859,7 +904,9 @@ export default function LaporanScreen() {
     return getDayStatus(hariTerpilih, absentMap, permitMap) ?? 'Alpha';
   }, [selEffectiveAbsent, hariTerpilih, absentMap, permitMap]);
 
-  const selScore = useMemo(() => selEffectiveAbsent?.score ?? 0, [selEffectiveAbsent]);
+  const selScore = useMemo(() => toScoreNumber(selEffectiveAbsent?.score), [selEffectiveAbsent]);
+  const selDeviceScore = useMemo(() => getAbsentDeviceScore(selEffectiveAbsent), [selEffectiveAbsent]);
+  const selTotalScore = useMemo(() => getAbsentTotalScore(selEffectiveAbsent), [selEffectiveAbsent]);
 
   // Keterangan pulang (PC/PT/P) dari bagian kedua kode status, mis. "T/PC"
   const pulangInfo = useMemo(() => {
@@ -929,7 +976,7 @@ export default function LaporanScreen() {
 
   // Monthly score stats for Harian view — follows the month of hariTerpilih
   const monthlyScoreStats = useMemo(() => {
-    const scored = selMonthAbsent.filter(r => r.score > 0);
+    const scored = selMonthAbsent.filter(r => getAbsentTotalScore(r) > 0);
     if (scored.length === 0) return null;
     const d = new Date(hariTerpilih + 'T00:00:00');
     const year = d.getFullYear(), month = d.getMonth();
@@ -939,9 +986,9 @@ export default function LaporanScreen() {
     const mEnd = isCurrentMonth ? toDateStr(now) : mEndFull;
     const monthScored = scored.filter(r => r.date >= mStart && r.date <= mEnd);
     if (monthScored.length === 0) return null;
-    const totalScore  = monthScored.reduce((s, r) => s + r.score, 0);
+    const totalScore  = monthScored.reduce((s, r) => s + getAbsentTotalScore(r), 0);
     const workdays    = countRangeWorkdays(mStart, mEnd);
-    const maxScore    = workdays * 8;
+    const maxScore    = workdays * 10;
     return {
       totalScore,
       maxScore,
@@ -1097,6 +1144,28 @@ export default function LaporanScreen() {
                     </Text>
                   </View>
                 )}
+                {selDeviceScore > 0 && (
+                  <View style={styles.hariRow}>
+                    <View style={styles.hariRowLeft}>
+                      <Ionicons name="phone-portrait-outline" size={15} color={colors.textHint} />
+                      <Text style={styles.hariRowLabel}>Nilai Device</Text>
+                    </View>
+                    <Text style={[styles.hariRowVal, { color: colors.textSecondary }]}>
+                      {selDeviceScore} poin
+                    </Text>
+                  </View>
+                )}
+                {selTotalScore > 0 && (
+                  <View style={styles.hariRow}>
+                    <View style={styles.hariRowLeft}>
+                      <Ionicons name="trophy-outline" size={15} color={colors.textHint} />
+                      <Text style={styles.hariRowLabel}>Total Skor</Text>
+                    </View>
+                    <Text style={[styles.hariRowVal, { color: colors.primary }]}>
+                      {selTotalScore} poin
+                    </Text>
+                  </View>
+                )}
               </View>
             ) : selPermit ? (
               <View style={[styles.hariCard, Shadow.sm, { borderLeftColor: STATUS_CFG['Izin'].color }]}>
@@ -1136,7 +1205,7 @@ export default function LaporanScreen() {
               <View style={[styles.skorBulanCard, Shadow.sm]}>
                 <View style={styles.skorBulanHeader}>
                   <Ionicons name="stats-chart-outline" size={16} color={colors.primary} />
-                  <Text style={styles.skorBulanTitle}>Skor {monthlyScoreStats.bulan}</Text>
+                  <Text style={styles.skorBulanTitle}>Total Skor {monthlyScoreStats.bulan}</Text>
                   {selMonthLoading && <ActivityIndicator size="small" color={colors.primary} />}
                   <Text style={styles.skorBulanPersen}>{monthlyScoreStats.persen}%</Text>
                 </View>
@@ -1157,7 +1226,7 @@ export default function LaporanScreen() {
                 <View style={styles.skorBulanHeader}>
                   <Ionicons name="stats-chart-outline" size={16} color={colors.primary} />
                   <Text style={styles.skorBulanTitle}>
-                    Skor {BULAN_PANJANG[new Date(hariTerpilih + 'T00:00:00').getMonth()]}
+                    Total Skor {BULAN_PANJANG[new Date(hariTerpilih + 'T00:00:00').getMonth()]}
                   </Text>
                   <ActivityIndicator size="small" color={colors.primary} />
                 </View>
