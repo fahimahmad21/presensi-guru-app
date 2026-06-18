@@ -12,7 +12,7 @@ import { FontSize, Radius, Shadow, Spacing } from '../../constants/Theme';
 import AppHeader from '../../components/AppHeader';
 import HeaderActions from '../../components/HeaderActions';
 import { AbsentReportItem, AbsentHistoryItem, PermitReportItem } from '../../types';
-import { getAbsentReport, getAllAbsentHistory, getAbsentDetail } from '../../services/absentService';
+import { getAbsentReport, getAllAbsentHistory, getAbsentDetail, getAbsentCheck } from '../../services/absentService';
 import { getPermitReport } from '../../services/permitService';
 
 type IonName = keyof typeof Ionicons.glyphMap;
@@ -57,6 +57,36 @@ function getBarColor(colors: ColorPalette): Record<string, string> {
 
 function toDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function toTimeStr(d: Date) {
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+}
+
+interface PresenceSchedule {
+  endstart:  string; // HH:MM:SS — setelah ini masuk dianggap lupa
+  onfinish:  string; // HH:MM:SS — sebelum ini belum waktunya absen pulang
+  endfinish: string; // HH:MM:SS — setelah ini pulang dianggap lupa
+}
+
+function resolveNoteLabel(
+  note: 'lupa_masuk' | 'lupa_pulang' | null,
+  date: string,
+  todayStr: string,
+  presence: PresenceSchedule | null,
+): string | null {
+  if (!note) return null;
+  const isToday = date === todayStr;
+  if (!isToday || !presence) {
+    return note === 'lupa_masuk' ? 'Lupa Absen Masuk' : 'Lupa Absen Pulang';
+  }
+  const now = toTimeStr(new Date());
+  if (note === 'lupa_masuk') {
+    return now >= presence.endstart ? 'Lupa Absen Masuk' : 'Belum Absen Masuk';
+  }
+  if (now < presence.onfinish) return null;
+  if (now >= presence.endfinish) return 'Lupa Absen Pulang';
+  return 'Belum Absen Pulang';
 }
 
 // API mungkin kirim "2026-06-09T07:05:00" atau "2026-06-09 07:05:00" — ambil bagian tanggalnya saja
@@ -445,10 +475,11 @@ function computeYearlyData(
 // ── Shared StatsAndRekap component ────────────────────────────────────────────
 
 function StatsAndRekap({
-  stats, showChart = false, barData, chartTrig,
+  stats, showChart = false, barData, chartTrig, todayStr, presence,
 }: {
   stats: MonthStats; showChart?: boolean;
   barData?: BarDayData[]; chartTrig?: number;
+  todayStr?: string; presence?: PresenceSchedule | null;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
@@ -515,8 +546,7 @@ function StatsAndRekap({
               : item.start || item.finish
               ? `${item.start ?? '–'} – ${item.finish ?? '–'}`
               : item.permitName ?? (item.status === 'Alpha' ? 'Tidak hadir' : item.status);
-            const noteLabel = item.note === 'lupa_masuk' ? 'Lupa Absen Masuk'
-              : item.note === 'lupa_pulang' ? 'Lupa Absen Pulang' : null;
+            const noteLabel = resolveNoteLabel(item.note, item.date, todayStr ?? '', presence ?? null);
             return (
               <View key={idx} style={[styles.rekapItem, Shadow.sm]}>
                 <View style={styles.rekapDate}>
@@ -714,6 +744,8 @@ export default function LaporanScreen() {
   const [filterPermit,     setFilterPermit]     = useState<PermitReportItem[]>([]);
   const [filterLoading,    setFilterLoading]    = useState(false);
 
+  const [presenceSchedule, setPresenceSchedule] = useState<PresenceSchedule | null>(null);
+
   // Regular data
   const [absentData, setAbsentData] = useState<AbsentReportItem[]>([]);
   const [permitData, setPermitData] = useState<PermitReportItem[]>([]);
@@ -781,6 +813,15 @@ export default function LaporanScreen() {
   }, [periode, hariTerpilih, bulanIdx, tahunBulan, tahun]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    getAbsentCheck()
+      .then(res => {
+        const p = res.data.data?.presence;
+        if (p) setPresenceSchedule({ endstart: p.endstart, onfinish: p.onfinish, endfinish: p.endfinish });
+      })
+      .catch(() => {});
+  }, []);
 
   // Load current month's absent report once when Harian tab is activated.
   // /absent/report always returns the current month regardless of params, so this gives real scores.
@@ -917,20 +958,18 @@ export default function LaporanScreen() {
   // Catatan jika lupa absen masuk tapi ada absen pulang (status "NO/...")
   const masukInfo = useMemo(() => {
     const code = selEffectiveAbsent?.status?.split('/')[0];
-    if (code === 'NO' && selEffectiveAbsent?.finish) {
-      return { label: 'Lupa absen masuk', color: colors.statusTerlambat };
-    }
-    return null;
-  }, [selEffectiveAbsent, colors]);
+    if (code !== 'NO' || !selEffectiveAbsent?.finish) return null;
+    const label = resolveNoteLabel('lupa_masuk', hariTerpilih, todayStr, presenceSchedule);
+    return label ? { label, color: colors.statusTerlambat } : null;
+  }, [selEffectiveAbsent, hariTerpilih, todayStr, presenceSchedule, colors]);
 
   // Catatan jika absen masuk valid tapi lupa absen pulang (status ".../NO")
   const pulangMissingInfo = useMemo(() => {
     const masuk = selEffectiveAbsent?.status?.split('/')[0];
-    if (masuk && masuk !== 'NO' && !selEffectiveAbsent?.finish) {
-      return { label: 'Lupa absen pulang', color: colors.statusTerlambat };
-    }
-    return null;
-  }, [selEffectiveAbsent, colors]);
+    if (!masuk || masuk === 'NO' || !!selEffectiveAbsent?.finish) return null;
+    const label = resolveNoteLabel('lupa_pulang', hariTerpilih, todayStr, presenceSchedule);
+    return label ? { label, color: colors.statusTerlambat } : null;
+  }, [selEffectiveAbsent, hariTerpilih, todayStr, presenceSchedule, colors]);
 
   const monthStats = useMemo(
     () => computeMonthStats(tahunBulan, bulanIdx, absentData, permitData),
@@ -1255,7 +1294,7 @@ export default function LaporanScreen() {
             </View>
 
             {monthStats.hasData ? (
-              <StatsAndRekap stats={monthStats} showChart barData={barData} chartTrig={chartTrig} />
+              <StatsAndRekap stats={monthStats} showChart barData={barData} chartTrig={chartTrig} todayStr={todayStr} presence={presenceSchedule} />
             ) : (
               <View style={[styles.emptyBox, Shadow.sm, { marginHorizontal: 14 }]}>
                 <Ionicons name="calendar-outline" size={40} color={colors.textHint} />
@@ -1435,7 +1474,7 @@ export default function LaporanScreen() {
                     {fmtDisplayDate(filterStart)} – {fmtDisplayDate(filterEnd)}
                   </Text>
                 </View>
-                <StatsAndRekap stats={filterStats} showChart={false} />
+                <StatsAndRekap stats={filterStats} showChart={false} todayStr={todayStr} presence={presenceSchedule} />
               </>
             )}
           </>

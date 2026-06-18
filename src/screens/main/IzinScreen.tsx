@@ -135,6 +135,8 @@ export default function IzinScreen() {
     size: string;
     data: string;
   } | null>(null);
+  const [lampiranMode, setLampiranMode] = useState<"file" | "url">("file");
+  const [lampiranUrl, setLampiranUrl] = useState("");
 
   const [alert, setAlert] = useState({
     visible: false,
@@ -199,8 +201,10 @@ export default function IzinScreen() {
 
   const handlePilihPermit = (p: PermitType) => {
     setSelectedPermit(p);
-    // Reset lampiran kalau tipe baru tidak butuh lampiran
-    if (!p.attachment) setLampiran(null);
+    if (!p.attachment) {
+      setLampiran(null);
+      setLampiranUrl("");
+    }
   };
 
   const handleUpload = async () => {
@@ -248,12 +252,16 @@ export default function IzinScreen() {
       });
       return;
     }
-    if (needsFile && !lampiran) {
+    const hasLampiran =
+      lampiranMode === "file" ? !!lampiran : !!lampiranUrl.trim();
+    if (needsFile && !hasLampiran) {
       setAlert({
         visible: true,
         type: "warning",
         title: "Lampiran Wajib",
-        msg: "Jenis izin ini memerlukan lampiran dokumen.",
+        msg: lampiranMode === "url"
+          ? "Masukkan URL lampiran yang valid."
+          : "Jenis izin ini memerlukan lampiran dokumen.",
       });
       return;
     }
@@ -273,11 +281,16 @@ export default function IzinScreen() {
         starts,
         finish,
         info: keterangan.trim(),
-        ...(lampiran ? { file: JSON.stringify(lampiran) } : {}),
+        ...(lampiranMode === "file" && lampiran
+          ? { file: JSON.stringify(lampiran) }
+          : lampiranMode === "url" && lampiranUrl.trim()
+          ? { file: lampiranUrl.trim() }
+          : {}),
       });
       if (res.data.status) {
         setKeterangan("");
         setLampiran(null);
+        setLampiranUrl("");
         await loadData();
         setAlert({
           visible: true,
@@ -529,28 +542,90 @@ export default function IzinScreen() {
                 <Text style={styles.labelOpsional}>(opsional)</Text>
               )}
             </Text>
-            <TouchableOpacity
-              style={[styles.uploadBox, lampiran && styles.uploadBoxFilled]}
-              onPress={handleUpload}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name={lampiran ? "document-attach" : "attach-outline"}
-                size={28}
-                color={lampiran ? colors.primary : "#AAAAAA"}
-              />
-              <Text
+
+            {/* Toggle File / URL */}
+            <View style={styles.lampiranToggle}>
+              <TouchableOpacity
                 style={[
-                  styles.uploadText,
-                  lampiran && { color: colors.primary },
+                  styles.lampiranToggleBtn,
+                  lampiranMode === "file" && styles.lampiranToggleBtnActive,
                 ]}
+                onPress={() => setLampiranMode("file")}
+                activeOpacity={0.8}
               >
-                {lampiran?.name ?? "Upload dokumen pendukung"}
-              </Text>
-              <Text style={styles.uploadSub}>
-                {lampiran ? "Ketuk untuk mengganti" : "Surat dokter, foto, PDF"}
-              </Text>
-            </TouchableOpacity>
+                <Ionicons
+                  name="document-attach-outline"
+                  size={14}
+                  color={lampiranMode === "file" ? "#fff" : colors.textSecondary}
+                />
+                <Text
+                  style={[
+                    styles.lampiranToggleText,
+                    lampiranMode === "file" && styles.lampiranToggleTextActive,
+                  ]}
+                >
+                  Upload File
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.lampiranToggleBtn,
+                  lampiranMode === "url" && styles.lampiranToggleBtnActive,
+                ]}
+                onPress={() => setLampiranMode("url")}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name="link-outline"
+                  size={14}
+                  color={lampiranMode === "url" ? "#fff" : colors.textSecondary}
+                />
+                <Text
+                  style={[
+                    styles.lampiranToggleText,
+                    lampiranMode === "url" && styles.lampiranToggleTextActive,
+                  ]}
+                >
+                  Tautan URL
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {lampiranMode === "file" ? (
+              <TouchableOpacity
+                style={[styles.uploadBox, lampiran && styles.uploadBoxFilled]}
+                onPress={handleUpload}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={lampiran ? "document-attach" : "attach-outline"}
+                  size={28}
+                  color={lampiran ? colors.primary : "#AAAAAA"}
+                />
+                <Text
+                  style={[
+                    styles.uploadText,
+                    lampiran && { color: colors.primary },
+                  ]}
+                >
+                  {lampiran?.name ?? "Upload dokumen pendukung"}
+                </Text>
+                <Text style={styles.uploadSub}>
+                  {lampiran ? "Ketuk untuk mengganti" : "Surat dokter, foto, PDF"}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <TextInput
+                style={styles.urlInput}
+                placeholder="https://drive.google.com/..."
+                placeholderTextColor={colors.textHint}
+                value={lampiranUrl}
+                onChangeText={setLampiranUrl}
+                keyboardType="url"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            )}
 
             <TouchableOpacity
               style={styles.submitBtn}
@@ -891,5 +966,46 @@ const getStyles = (colors: ColorPalette) =>
       fontSize: FontSize.xs - 2,
       color: colors.primary,
       fontFamily: "Poppins_400Regular",
+    },
+    lampiranToggle: {
+      flexDirection: "row",
+      backgroundColor: colors.white,
+      borderRadius: Radius.md,
+      padding: 3,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    lampiranToggleBtn: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      paddingVertical: 8,
+      borderRadius: Radius.md - 2,
+    },
+    lampiranToggleBtnActive: {
+      backgroundColor: colors.primary,
+    },
+    lampiranToggleText: {
+      fontSize: FontSize.sm,
+      fontFamily: "Poppins_500Medium",
+      color: colors.textSecondary,
+    },
+    lampiranToggleTextActive: {
+      color: "#fff",
+    },
+    urlInput: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: Radius.md,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: FontSize.sm,
+      fontFamily: "Poppins_400Regular",
+      color: colors.textPrimary,
+      backgroundColor: colors.white,
+      marginBottom: 16,
     },
   });

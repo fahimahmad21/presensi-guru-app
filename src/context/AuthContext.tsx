@@ -72,12 +72,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { 'Auth-Api': api, 'Auth-Key': key, 'Auth-Token': token, name } = res.data.data;
     await saveAuthTokens(api, key, token);
 
-    // Ambil data profil lengkap termasuk foto
+    // Ambil data profil lengkap termasuk foto — gunakan name dari profil agar selalu sinkron
     const profile = await getProfile();
     if (profile.data.status) setUser(profile.data.data);
+    const savedName = profile.data.data?.name ?? name;
 
     try {
-      await saveAccount({ username, name, authApi: api, authKey: key, authToken: token });
+      await saveAccount({ username, name: savedName, authApi: api, authKey: key, authToken: token });
     } catch (e) {
       console.warn('Gagal menyimpan akun:', e);
     }
@@ -93,6 +94,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!profile.data.status) throw new Error('Sesi berakhir');
       setUser(profile.data.data);
       setIsLoggedIn(true);
+      // Perbarui nama di riwayat login jika sudah berubah di backend
+      const freshName = profile.data.data?.name;
+      if (freshName && freshName !== account.name) {
+        await saveAccount({ ...account, name: freshName });
+      }
     } catch (e) {
       await clearAuthTokens();
       throw e;

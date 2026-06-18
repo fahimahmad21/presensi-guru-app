@@ -100,7 +100,10 @@ Dicetak pada ${new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'n
 </body></html>`;
 }
 
+const BACKEND_READY = false; // ubah ke true saat payroll sudah terhubung ke backend
+
 export default function PayrollScreen() {
+
   const { colors } = useTheme();
   const styles = React.useMemo(() => getStyles(colors), [colors]);
 
@@ -108,6 +111,23 @@ export default function PayrollScreen() {
   const [unduhLoading, setUnduhLoading] = useState(false);
   const [alert, setAlert] = useState({ visible: false, type: 'success' as 'success' | 'error', title: '', msg: '' });
   const data = MOCK_CURRENT;
+
+  if (!BACKEND_READY) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <AppHeader title="Penggajian" right={<HeaderActions />} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 16 }}>
+          <Ionicons name="construct-outline" size={64} color={colors.textHint} />
+          <Text style={{ fontSize: FontSize.lg, fontFamily: 'Poppins_700Bold', color: colors.textPrimary, textAlign: 'center' }}>
+            Segera Hadir
+          </Text>
+          <Text style={{ fontSize: FontSize.sm, fontFamily: 'Poppins_400Regular', color: colors.textSecondary, textAlign: 'center', lineHeight: 22 }}>
+            Fitur ini sedang dalam pengembangan dan akan segera tersedia.
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   const handleUnduhPDF = async () => {
     setUnduhLoading(true);

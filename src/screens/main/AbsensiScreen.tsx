@@ -22,6 +22,7 @@ import {
   getAbsentInfo,
   getAbsentCheck,
   getAbsentHistory,
+  getAllAbsentHistory,
   insertAbsent,
 } from "../../services/absentService";
 import { ColorPalette } from "../../constants/Colors";
@@ -128,6 +129,7 @@ export default function AbsensiScreen() {
   const [absentInfo, setAbsentInfo] = useState<AbsentInfo | null>(null);
   const [checkStatus, setCheckStatus] = useState<AbsentCheck | null>(null);
   const [history, setHistory] = useState<AbsentHistoryItem[]>([]);
+  const [allHistory, setAllHistory] = useState<AbsentHistoryItem[]>([]);
   const [loadingInit, setLoadingInit] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -177,6 +179,12 @@ export default function AbsensiScreen() {
 
   useEffect(() => {
     loadData();
+  }, []);
+
+  useEffect(() => {
+    getAllAbsentHistory()
+      .then(res => setAllHistory(res.data.data ?? []))
+      .catch(() => {});
   }, []);
 
   // Derived
@@ -477,27 +485,13 @@ export default function AbsensiScreen() {
           {/* ── STATISTIK ── */}
           <View style={styles.sumStrip}>
             {[
-              {
-                num: history.filter((h) => h.type === "IN" && h.valid).length,
-                label: "Masuk",
-                color: colors.statusHadir,
-              },
-              {
-                num: history.filter((h) => h.type === "OUT" && h.valid).length,
-                label: "Keluar",
-                color: colors.statusIzin,
-              },
-              {
-                num: history.filter((h) => !h.valid).length,
-                label: "Invalid",
-                color: colors.statusAlpha,
-              },
-              { num: history.length, label: "Total", color: colors.primary },
+              { num: allHistory.filter((h) => h.type === "IN"  && h.valid).length, label: "Masuk",   color: colors.statusHadir },
+              { num: allHistory.filter((h) => h.type === "OUT" && h.valid).length, label: "Keluar",  color: colors.statusIzin  },
+              { num: allHistory.filter((h) => !h.valid).length,                    label: "Invalid", color: colors.statusAlpha },
+              { num: allHistory.length,                                             label: "Total",   color: colors.primary     },
             ].map((item) => (
               <View key={item.label} style={[styles.sumItem, Shadow.sm]}>
-                <Text style={[styles.sumNum, { color: item.color }]}>
-                  {item.num}
-                </Text>
+                <Text style={[styles.sumNum, { color: item.color }]}>{item.num}</Text>
                 <Text style={styles.sumLabel}>{item.label}</Text>
               </View>
             ))}
@@ -959,21 +953,7 @@ const getStyles = (colors: ColorPalette) => StyleSheet.create({
     fontFamily: "Poppins_400Regular",
   },
 
-  sumStrip: { flexDirection: "row", gap: 8, marginBottom: 14 },
-  sumItem: {
-    flex: 1,
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 10,
-    alignItems: "center",
-  },
-  sumNum: { fontSize: FontSize.xl, fontFamily: "Poppins_700Bold" },
-  sumLabel: {
-    fontSize: FontSize.xs - 2,
-    color: colors.textTertiary,
-    marginTop: 1,
-    fontFamily: "Poppins_400Regular",
-  },
+
 
   sectionHeader: { marginBottom: 10 },
   sectionTitle: {
@@ -1236,5 +1216,20 @@ const getStyles = (colors: ColorPalette) => StyleSheet.create({
     fontSize: FontSize.md,
     fontFamily: "Poppins_500Medium",
     color: colors.textTertiary,
+  },
+  sumStrip: { flexDirection: "row", gap: 8, marginBottom: 14 },
+  sumItem: {
+    flex: 1,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 10,
+    alignItems: "center",
+  },
+  sumNum: { fontSize: FontSize.xl, fontFamily: "Poppins_700Bold" },
+  sumLabel: {
+    fontSize: FontSize.xs - 2,
+    color: colors.textTertiary,
+    marginTop: 1,
+    fontFamily: "Poppins_400Regular",
   },
 });
