@@ -16,6 +16,7 @@ import DateTimePicker, {
 } from "@react-native-community/datetimepicker";
 import * as DocumentPicker from "expo-document-picker";
 import { readAsStringAsync, EncodingType } from "expo-file-system/legacy";
+import * as ImageManipulator from "expo-image-manipulator";
 import { PermitType, PermitHistoryItem } from "../../types";
 import {
   getPermitTypes,
@@ -215,12 +216,22 @@ export default function IzinScreen() {
       });
       if (!result.canceled && result.assets?.[0]) {
         const asset = result.assets[0];
-        const data = await readAsStringAsync(asset.uri, {
+        const isImage = asset.mimeType?.startsWith("image/");
+        let uri = asset.uri;
+        if (isImage) {
+          const manipulated = await ImageManipulator.manipulateAsync(
+            uri,
+            [{ resize: { width: 1000 } }],
+            { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG },
+          );
+          uri = manipulated.uri;
+        }
+        const data = await readAsStringAsync(uri, {
           encoding: EncodingType.Base64,
         });
         setLampiran({
           name: asset.name,
-          type: asset.mimeType ?? "application/octet-stream",
+          type: isImage ? "image/jpeg" : (asset.mimeType ?? "application/octet-stream"),
           size: String(asset.size ?? 0),
           data,
         });

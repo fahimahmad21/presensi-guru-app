@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect } from 'react';
 import { View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -54,17 +55,19 @@ export default function App() {
   if (!fontsLoaded) return null;
 
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <SafeAreaProvider>
-          <NavigationContainer>
-            <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-              <StatusBar style="light" />
-              <RootNavigator />
-            </View>
-          </NavigationContainer>
-        </SafeAreaProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <AuthProvider>
+          <SafeAreaProvider>
+            <NavigationContainer>
+              <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+                <StatusBar style="light" />
+                <RootNavigator />
+              </View>
+            </NavigationContainer>
+          </SafeAreaProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

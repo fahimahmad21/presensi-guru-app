@@ -178,6 +178,7 @@ export interface PermitReportItem {
   permit: string;
   start:  string;
   finish: string;
+  action: string; // "Approved" | "Pending" | "Rejected"
 }
 
 // ─── DataTable Response ───────────────────────────────────────────────────────

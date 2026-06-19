@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity,
+  View, Text, TouchableOpacity,
   StyleSheet, Animated, ActivityIndicator, Modal,
 } from 'react-native';
+import { ScrollView, PanGestureHandler, State as GestureState } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import CalendarPickerModal from '../../components/CalendarPickerModal';
@@ -20,6 +21,8 @@ type Periode = 'Harian' | 'Bulanan' | 'Tahunan' | 'Kustom';
 type AttendanceStatus = 'Hadir' | 'Terlambat' | 'Alpha' | 'Izin';
 
 const BAR_MAX_H = 80;
+const PULL_THRESHOLD = 80;
+const LOADING_HEIGHT = 60;
 const BULAN_SINGKAT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 const BULAN_PANJANG  = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 
@@ -322,6 +325,7 @@ export interface RekapItem {
   date: string; status: AttendanceStatus;
   start: string | null; finish: string | null; permitName: string | null;
   note: 'lupa_masuk' | 'lupa_pulang' | null;
+  permitOverlay: { name: string; start: string; finish: string; isFullDay: boolean } | null;
 }
 
 export interface MonthStats {
@@ -367,16 +371,23 @@ function computeRangeStats(
         const note: RekapItem['note'] =
           masukCode === 'NO' && absent!.finish ? 'lupa_masuk' :
           masukCode !== 'NO' && !absent!.finish ? 'lupa_pulang' : null;
+        let permitOverlay: RekapItem['permitOverlay'] = null;
+        if (permit && permit.action !== 'Rejected') {
+          const isFullDay = !permit.finish || permit.finish === '23:59' || permit.finish === '00:00';
+          if (!isFullDay) {
+            permitOverlay = { name: permit.permit, start: permit.start, finish: permit.finish, isFullDay };
+          }
+        }
         rekapList.push({ date: ds, status: presentStatus,
-          start: absent!.start || null, finish: absent!.finish || null, permitName: null, note });
-      } else if (permit) {
+          start: absent!.start || null, finish: absent!.finish || null, permitName: null, note, permitOverlay });
+      } else if (permit && permit.action !== 'Rejected') {
         izin++;
         rekapList.push({ date: ds, status: 'Izin',
-          start: null, finish: null, permitName: permit.permit, note: null });
+          start: null, finish: null, permitName: permit.permit, note: null, permitOverlay: null });
       } else {
         alpha++;
         rekapList.push({ date: ds, status: 'Alpha',
-          start: null, finish: null, permitName: null, note: null });
+          start: null, finish: null, permitName: null, note: null, permitOverlay: null });
       }
     }
     cur.setDate(cur.getDate() + 1);
@@ -572,6 +583,17 @@ function StatsAndRekap({
                   </View>
                 </View>
                 <Ionicons name={sc.icon} size={20} color={sc.color} />
+                {item.permitOverlay ? (
+                  <View style={{ position: 'absolute', top: 6, right: 6 }}>
+                    <View style={[styles.rekapChip, { backgroundColor: colors.statusIzinBg, paddingHorizontal: 6, paddingVertical: 2 }]}>
+                      <Text style={[styles.rekapChipText, { color: colors.statusIzin, fontSize: 9 }]}>
+                        {item.permitOverlay.isFullDay
+                          ? item.permitOverlay.name
+                          : `${/pagi|sore|koordinator/i.test(item.permitOverlay.name) ? `Piket ${item.permitOverlay.name}` : item.permitOverlay.name} ${item.permitOverlay.start.substring(0, 5)} s/d ${item.permitOverlay.finish.substring(0, 5)}`}
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
               </View>
             );
           })
@@ -752,6 +774,14 @@ export default function LaporanScreen() {
   const [loading,    setLoading]    = useState(false);
   const [loadError,  setLoadError]  = useState<string | null>(null);
   const [chartTrig,  setChartTrig]  = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const pullY           = useRef(new Animated.Value(0)).current;
+  const scrollYRef      = useRef(0);
+  const isRefreshingRef = useRef(false);
+  const panRef          = useRef<any>(null);
+  const scrollRef       = useRef<any>(null);
+  const contentOpacity  = useRef(new Animated.Value(1)).current;
 
   // Current-month absent data for Harian monthly score card (score field only available from /absent/report)
   const [curMonthAbsent, setCurMonthAbsent] = useState<AbsentReportItem[]>([]);
@@ -813,6 +843,47 @@ export default function LaporanScreen() {
   }, [periode, hariTerpilih, bulanIdx, tahunBulan, tahun]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  const doRefresh = useCallback(async () => {
+    historyCache.current = null;
+    detailCache.current.clear();
+    monthAbsentCache.current.clear();
+    const now = new Date();
+    const [mStart, mEnd] = getMonthRange(now.getFullYear(), now.getMonth());
+    await Promise.all([
+      loadData(),
+      getAbsentReport(mStart, mEnd)
+        .then(res => setCurMonthAbsent((res.data.data ?? []).map(normalizeAbsentReportItem)))
+        .catch(() => {}),
+    ]);
+  }, [loadData]);
+
+  const handleGestureEvent = useCallback(({ nativeEvent }: any) => {
+    const { translationY } = nativeEvent;
+    if (scrollYRef.current < 5 && translationY > 0 && !isRefreshingRef.current) {
+      pullY.setValue(Math.min(translationY * 0.45, LOADING_HEIGHT * 2));
+    }
+  }, []);
+
+  const handleStateChange = useCallback(({ nativeEvent }: any) => {
+    const { state, translationY } = nativeEvent;
+    if (state === GestureState.END || state === GestureState.CANCELLED || state === GestureState.FAILED) {
+      if (translationY >= PULL_THRESHOLD && scrollYRef.current < 5 && !isRefreshingRef.current) {
+        isRefreshingRef.current = true;
+        setRefreshing(true);
+        Animated.spring(pullY, { toValue: LOADING_HEIGHT, useNativeDriver: true, tension: 40, friction: 8 }).start();
+        Animated.timing(contentOpacity, { toValue: 0.25, duration: 200, useNativeDriver: true }).start();
+        doRefresh().finally(() => {
+          setRefreshing(false);
+          isRefreshingRef.current = false;
+          Animated.spring(pullY, { toValue: 0, useNativeDriver: true, tension: 40, friction: 8 }).start();
+          Animated.timing(contentOpacity, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+        });
+      } else if (!isRefreshingRef.current) {
+        Animated.spring(pullY, { toValue: 0, useNativeDriver: true, tension: 40, friction: 8 }).start();
+      }
+    }
+  }, [doRefresh]);
 
   useEffect(() => {
     getAbsentCheck()
@@ -1064,7 +1135,26 @@ export default function LaporanScreen() {
     <View style={styles.root}>
       <AppHeader title="Laporan Kehadiran" right={<HeaderActions />} />
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <PanGestureHandler
+        ref={panRef}
+        onGestureEvent={handleGestureEvent}
+        onHandlerStateChange={handleStateChange}
+        simultaneousHandlers={scrollRef}
+      >
+        <Animated.View style={{ flex: 1 }}>
+        <View style={styles.pullLoadingWrap}>
+          {refreshing && <ActivityIndicator color={colors.textTertiary} size="large" />}
+        </View>
+        <Animated.View style={{ flex: 1, transform: [{ translateY: pullY }] }}>
+        <ScrollView
+          ref={scrollRef}
+          simultaneousHandlers={panRef}
+          showsVerticalScrollIndicator={false}
+          overScrollMode="never"
+          onScroll={e => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+          scrollEventThrottle={16}
+        >
+        <Animated.View style={{ opacity: contentOpacity }}>
 
         {/* ── Tab Toggle (scrollable) ── */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false}
@@ -1083,7 +1173,7 @@ export default function LaporanScreen() {
           ))}
         </ScrollView>
 
-        {loading && (
+        {loading && !refreshing && (
           <View style={styles.loadingRow}>
             <ActivityIndicator color={colors.primary} size="small" />
             <Text style={styles.loadingText}>Memuat data...</Text>
@@ -1481,7 +1571,11 @@ export default function LaporanScreen() {
         )}
 
         <View style={{ height: 20 }} />
+        </Animated.View>
       </ScrollView>
+        </Animated.View>
+        </Animated.View>
+      </PanGestureHandler>
 
       {/* Bulanan: pilih bulan & tahun */}
       <Modal transparent animationType="fade" visible={showBulanPicker} onRequestClose={() => setShowBulanPicker(false)}>
@@ -1546,6 +1640,11 @@ export default function LaporanScreen() {
 
 const getStyles = (colors: ColorPalette) => StyleSheet.create({
   root:        { flex: 1, backgroundColor: colors.background },
+  pullLoadingWrap: {
+    position: 'absolute', top: 0, left: 0, right: 0,
+    height: LOADING_HEIGHT, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: colors.background,
+  },
 
   // Tab toggle
   togWrap: { paddingHorizontal: 14, paddingVertical: 10, gap: 8, flexDirection: 'row' },

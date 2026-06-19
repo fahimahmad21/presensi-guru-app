@@ -59,10 +59,18 @@ export async function getPermitReport(
           permit: item.permittance,
           start:  item.starts.split(' ')[1] ?? '',
           finish: item.finish.split(' ')[1]  ?? '',
+          action: item.action ?? '',
         });
       }
       cur.setDate(cur.getDate() + 1);
     }
   }
-  return { data: { status: true, data } };
+  // API returns newest-first — keep only the first (most recent) permit per date
+  const seen = new Set<string>();
+  const deduped = data.filter(r => {
+    if (seen.has(r.date)) return false;
+    seen.add(r.date);
+    return true;
+  });
+  return { data: { status: true, data: deduped } };
 }

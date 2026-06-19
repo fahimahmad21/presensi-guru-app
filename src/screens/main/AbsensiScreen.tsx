@@ -2,13 +2,14 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   StyleSheet,
   Modal,
   ActivityIndicator,
   Image,
+  Animated,
 } from "react-native";
+import { ScrollView, PanGestureHandler, State as GestureState } from "react-native-gesture-handler";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -132,6 +133,20 @@ export default function AbsensiScreen() {
   const [allHistory, setAllHistory] = useState<AbsentHistoryItem[]>([]);
   const [loadingInit, setLoadingInit] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const pullY        = useRef(new Animated.Value(0)).current;
+  const scrollYRef      = useRef(0);
+  const isRefreshingRef = useRef(false);
+  const panRef          = useRef<any>(null);
+  const scrollRef       = useRef<any>(null);
+  const PULL_THRESHOLD  = 80;
+  const LOADING_HEIGHT  = 60;
+  const heroOverlayOpacity = pullY.interpolate({
+    inputRange: [0, LOADING_HEIGHT],
+    outputRange: [0, 0.75],
+    extrapolate: 'clamp',
+  });
+  const contentOpacity = useRef(new Animated.Value(1)).current;
 
   const [showLokasi, setShowLokasi] = useState(false);
   const [lokasiStatus, setLokasiStatus] = useState<LokasiStatus>("loading");
@@ -177,6 +192,40 @@ export default function AbsensiScreen() {
     }
   }, []);
 
+  const doRefresh = useCallback(async () => {
+    await Promise.all([
+      loadData(),
+      getAllAbsentHistory().then(res => setAllHistory(res.data.data ?? [])),
+    ]);
+  }, [loadData]);
+
+  const handleGestureEvent = useCallback(({ nativeEvent }: any) => {
+    const { translationY } = nativeEvent;
+    if (scrollYRef.current < 5 && translationY > 0 && !isRefreshingRef.current) {
+      pullY.setValue(Math.min(translationY * 0.45, LOADING_HEIGHT * 2));
+    }
+  }, []);
+
+  const handleStateChange = useCallback(({ nativeEvent }: any) => {
+    const { state, translationY } = nativeEvent;
+    if (state === GestureState.END || state === GestureState.CANCELLED || state === GestureState.FAILED) {
+      if (translationY >= PULL_THRESHOLD && scrollYRef.current < 5 && !isRefreshingRef.current) {
+        isRefreshingRef.current = true;
+        setRefreshing(true);
+        Animated.spring(pullY, { toValue: LOADING_HEIGHT, useNativeDriver: true, tension: 40, friction: 8 }).start();
+        Animated.timing(contentOpacity, { toValue: 0.25, duration: 200, useNativeDriver: true }).start();
+        doRefresh().finally(() => {
+          setRefreshing(false);
+          isRefreshingRef.current = false;
+          Animated.spring(pullY, { toValue: 0, useNativeDriver: true, tension: 40, friction: 8 }).start();
+          Animated.timing(contentOpacity, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+        });
+      } else if (!isRefreshingRef.current) {
+        Animated.spring(pullY, { toValue: 0, useNativeDriver: true, tension: 40, friction: 8 }).start();
+      }
+    }
+  }, [doRefresh]);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -190,6 +239,7 @@ export default function AbsensiScreen() {
   // Derived
   const sekolahLat = parseFloat(absentInfo?.maps.lat ?? "0");
   const sekolahLng = parseFloat(absentInfo?.maps.lng ?? "0");
+  // const sekolahRadius = 50000;
   const sekolahRadius = parseInt(absentInfo?.maps.radius ?? "100");
   const sekolahNama = absentInfo?.name ?? "Sekolah";
 
@@ -199,11 +249,11 @@ export default function AbsensiScreen() {
   );
   const RIWAYAT_LIMIT = 5;
 
-  const aksiAbsen = checkStatus?.absent.type === "OUT" ? "keluar" : "masuk";
   const todayIN = history.find((h) => h.type === "IN" && isToday(h.date));
   const todayOUT = history.find((h) => h.type === "OUT" && isToday(h.date));
   const checkInTime = todayIN ? formatJam(todayIN.date) : null;
   const checkOutTime = todayOUT ? formatJam(todayOUT.date) : null;
+  const aksiAbsen = (todayIN || isPastDeadline(checkStatus?.presence.endstart)) ? "keluar" : "masuk";
 
   const firstName = user?.name?.split(" ")[0] ?? "Guru";
   const sapaanGender = user?.gender === 'male' ? 'Bapak' : user?.gender === 'female' ? 'Ibu' : '';
@@ -379,7 +429,25 @@ export default function AbsensiScreen() {
         </View>
       </AppHeader>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <PanGestureHandler
+        ref={panRef}
+        onGestureEvent={handleGestureEvent}
+        onHandlerStateChange={handleStateChange}
+        simultaneousHandlers={scrollRef}
+      >
+        <Animated.View style={{ flex: 1 }}>
+        <View style={styles.pullLoadingWrap}>
+          {refreshing && <ActivityIndicator color={colors.textTertiary} size="large" />}
+        </View>
+        <Animated.View style={{ flex: 1, transform: [{ translateY: pullY }] }}>
+        <ScrollView
+          ref={scrollRef}
+          simultaneousHandlers={panRef}
+          showsVerticalScrollIndicator={false}
+          overScrollMode="never"
+          onScroll={e => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+          scrollEventThrottle={16}
+        >
         <LinearGradient
           colors={headerColors}
           start={{ x: 0, y: 0 }}
@@ -390,8 +458,10 @@ export default function AbsensiScreen() {
             <Ionicons name="calendar-outline" size={12} color="#fff" />
             <Text style={styles.heroDate}>{today}</Text>
           </View>
+          <Animated.View style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.background, opacity: heroOverlayOpacity }]} />
         </LinearGradient>
 
+        <Animated.View style={{ opacity: contentOpacity }}>
         <View style={styles.body}>
           {/* ── KARTU ABSENSI ── */}
           <View style={[styles.attendCard, Shadow.md]}>
@@ -593,7 +663,11 @@ export default function AbsensiScreen() {
 
           <View style={{ height: 20 }} />
         </View>
+        </Animated.View>
       </ScrollView>
+        </Animated.View>
+        </Animated.View>
+      </PanGestureHandler>
 
       {/* ═══════ MODAL LOKASI ═══════ */}
       <Modal
@@ -1216,6 +1290,14 @@ const getStyles = (colors: ColorPalette) => StyleSheet.create({
     fontSize: FontSize.md,
     fontFamily: "Poppins_500Medium",
     color: colors.textTertiary,
+  },
+  pullLoadingWrap: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
   },
   sumStrip: { flexDirection: "row", gap: 8, marginBottom: 14 },
   sumItem: {
