@@ -37,7 +37,7 @@ export function getPermitDetail(id: string) {
   return apiClient.get(`/permit/history/${id}`);
 }
 
-// /permit/report does not exist on this server — fetch history and expand multi-day permits into daily records
+// /permit/report returns a different schema than expected — build from /permit/history instead
 export async function getPermitReport(
   startDate: string, endDate: string,
 ): Promise<{ data: { status: boolean; data: PermitReportItem[] } }> {

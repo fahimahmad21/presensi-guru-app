@@ -8,6 +8,7 @@ import { ColorPalette } from '../constants/Colors';
 import { useTheme } from '../context/ThemeContext';
 import { FontSize, Shadow } from '../constants/Theme';
 import { buildNotifications, getReadIds, saveReadIds, NotifItem } from '../services/NotificationService';
+import { useNotifBadge } from '../context/NotifBadgeContext';
 
 function getTipeCfg(colors: ColorPalette, isDark: boolean): Record<NotifItem['tipe'], { color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> {
   return {
@@ -26,6 +27,7 @@ export default function NotificationModal({ visible, onClose }: Props) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
   const TIPE_CFG = useMemo(() => getTipeCfg(colors, isDark), [colors, isDark]);
+  const { syncBadge } = useNotifBadge();
   const [notifs,  setNotifs]  = useState<NotifItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
@@ -35,20 +37,24 @@ export default function NotificationModal({ visible, onClose }: Props) {
     setLoading(true);
     setError(null);
     buildNotifications()
-      .then(setNotifs)
+      .then(list => { setNotifs(list); syncBadge(list.filter(n => !n.dibaca).length); })
       .catch(() => setError('Gagal memuat notifikasi'))
       .finally(() => setLoading(false));
   }, [visible]);
 
   const tandaiSatu = async (id: string) => {
-    setNotifs(prev => prev.map(n => n.id === id ? { ...n, dibaca: true } : n));
+    const updated = notifs.map(n => n.id === id ? { ...n, dibaca: true } : n);
+    setNotifs(updated);
+    syncBadge(updated.filter(n => !n.dibaca).length);
     const readIds = await getReadIds();
     readIds.add(id);
     await saveReadIds(readIds);
   };
 
   const tandaiSemuaDibaca = async () => {
-    setNotifs(prev => prev.map(n => ({ ...n, dibaca: true })));
+    const updated = notifs.map(n => ({ ...n, dibaca: true }));
+    setNotifs(updated);
+    syncBadge(0);
     const readIds = await getReadIds();
     notifs.forEach(n => readIds.add(n.id));
     await saveReadIds(readIds);

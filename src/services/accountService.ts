@@ -4,11 +4,12 @@ const SAVED_ACCOUNTS_KEY = 'saved_accounts';
 const MAX_ACCOUNTS = 5;
 
 export interface SavedAccount {
-  username:  string;
-  name:      string;
-  authApi:   string;
-  authKey:   string;
-  authToken: string;
+  username:   string;
+  name:       string;
+  authApi:    string;
+  authKey:    string;
+  authToken:  string;
+  authSocket?: string;
 }
 
 export async function getSavedAccounts(): Promise<SavedAccount[]> {

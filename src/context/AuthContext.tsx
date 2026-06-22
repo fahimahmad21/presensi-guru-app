@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { saveAuthTokens, clearAuthTokens, hasAuthTokens } from '../services/apiClient';
 import { login as apiLogin, getProfile, updateAvatar as apiUpdateAvatar } from '../services/authService';
 import { saveAccount, SavedAccount } from '../services/accountService';
@@ -69,8 +70,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await apiLogin(username, password);
     if (!res.data.status) throw new Error(res.data.message);
 
-    const { 'Auth-Api': api, 'Auth-Key': key, 'Auth-Token': token, name } = res.data.data;
-    await saveAuthTokens(api, key, token);
+    const { 'Auth-Api': api, 'Auth-Key': key, 'Auth-Token': token, 'Auth-Socket': socket, name } = res.data.data;
+    console.log('[Auth-Socket]', socket);
+    await saveAuthTokens(api, key, token, socket);
 
     // Ambil data profil lengkap termasuk foto — gunakan name dari profil agar selalu sinkron
     const profile = await getProfile();
@@ -78,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const savedName = profile.data.data?.name ?? name;
 
     try {
-      await saveAccount({ username, name: savedName, authApi: api, authKey: key, authToken: token });
+      await saveAccount({ username, name: savedName, authApi: api, authKey: key, authToken: token, authSocket: socket });
     } catch (e) {
       console.warn('Gagal menyimpan akun:', e);
     }
@@ -88,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Login cepat memakai token akun tersimpan (tanpa password)
   const loginWithSavedAccount = async (account: SavedAccount) => {
-    await saveAuthTokens(account.authApi, account.authKey, account.authToken);
+    await saveAuthTokens(account.authApi, account.authKey, account.authToken, account.authSocket);
     try {
       const profile = await getProfile();
       if (!profile.data.status) throw new Error('Sesi berakhir');
@@ -107,6 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     await clearAuthTokens();
+    await AsyncStorage.multiRemove(['@ws_notifs_v1', '@notif_badge_v1', '@notif_read_v1']);
     setUser(null);
     setIsLoggedIn(false);
   };

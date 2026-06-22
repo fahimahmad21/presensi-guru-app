@@ -1,14 +1,17 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   TextInput,
   StyleSheet,
   Platform,
   ActivityIndicator,
+  DeviceEventEmitter,
+  Animated,
 } from "react-native";
+import { ScrollView, PanGestureHandler, State as GestureState } from "react-native-gesture-handler";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
@@ -30,6 +33,9 @@ import { FontSize, Radius, Shadow } from "../../constants/Theme";
 import AppHeader from "../../components/AppHeader";
 import HeaderActions from "../../components/HeaderActions";
 import AlertModal from "../../components/AlertModal";
+
+const PULL_THRESHOLD = 80;
+const LOADING_HEIGHT = 60;
 
 type IonName = keyof typeof Ionicons.glyphMap;
 
@@ -54,13 +60,13 @@ function getActionCfg(
       bg: colors.statusTerlambatBg,
       label: "Menunggu",
     },
-    Approved: {
+    Approve: {
       icon: "checkmark-circle",
       color: colors.statusHadir,
       bg: colors.statusHadirBg,
       label: "Disetujui",
     },
-    Rejected: {
+    Reject: {
       icon: "close-circle",
       color: colors.statusAlpha,
       bg: colors.statusAlphaBg,
@@ -146,6 +152,14 @@ export default function IzinScreen() {
     msg: "",
   });
   const [alertHapus, setAlertHapus] = useState({ visible: false, id: "" });
+  const [refreshing, setRefreshing] = useState(false);
+
+  const pullY           = useRef(new Animated.Value(0)).current;
+  const scrollYRef      = useRef(0);
+  const isRefreshingRef = useRef(false);
+  const panRef          = useRef<any>(null);
+  const scrollRef       = useRef<any>(null);
+  const contentOpacity  = useRef(new Animated.Value(1)).current;
 
   const loadData = useCallback(async () => {
     try {
@@ -166,8 +180,71 @@ export default function IzinScreen() {
     }
   }, []);
 
+  const doRefresh = useCallback(async () => {
+    try {
+      const res = await getPermitHistory();
+      setHistory(res.data.data ?? []);
+    } catch {}
+  }, []);
+
+  const handleGestureEvent = useCallback(({ nativeEvent }: any) => {
+    const { translationY } = nativeEvent;
+    if (scrollYRef.current < 5 && translationY > 0 && !isRefreshingRef.current) {
+      pullY.setValue(Math.min(translationY * 0.45, LOADING_HEIGHT * 2));
+    }
+  }, []);
+
+  const handleStateChange = useCallback(({ nativeEvent }: any) => {
+    const { state, translationY } = nativeEvent;
+    if (state === GestureState.END || state === GestureState.CANCELLED || state === GestureState.FAILED) {
+      if (translationY >= PULL_THRESHOLD && scrollYRef.current < 5 && !isRefreshingRef.current) {
+        isRefreshingRef.current = true;
+        setRefreshing(true);
+        Animated.spring(pullY, { toValue: LOADING_HEIGHT, useNativeDriver: true, tension: 40, friction: 8 }).start();
+        Animated.timing(contentOpacity, { toValue: 0.25, duration: 200, useNativeDriver: true }).start();
+        doRefresh().finally(() => {
+          setRefreshing(false);
+          isRefreshingRef.current = false;
+          Animated.spring(pullY, { toValue: 0, useNativeDriver: true, tension: 40, friction: 8 }).start();
+          Animated.timing(contentOpacity, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+        });
+      } else if (!isRefreshingRef.current) {
+        Animated.spring(pullY, { toValue: 0, useNativeDriver: true, tension: 40, friction: 8 }).start();
+      }
+    }
+  }, [doRefresh]);
+
+  // Refresh setiap kali tab ini dibuka/difokuskan — jamin data selalu fresh
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
+
+  // Update history saat backend push event izin via WebSocket
   useEffect(() => {
-    loadData();
+    const sub = DeviceEventEmitter.addListener('ws:permit', (msg: Record<string, unknown>) => {
+      const id     = String(msg.id ?? '');
+      const status = String(msg.status ?? '').toLowerCase();
+      console.log('[IzinScreen] ws:permit id:', id, 'status:', status);
+
+      if (status === 'delete') {
+        setHistory(prev => prev.filter(h => h.id !== id));
+      } else {
+        const newAction = status.startsWith('approve') ? 'Approve' as const
+                        : status.startsWith('reject')  ? 'Reject'  as const
+                        : status.startsWith('wait') || status === 'pending' ? 'Waiting' as const
+                        : null;
+        console.log('[IzinScreen] newAction:', newAction);
+        if (!newAction) return;
+        setHistory(prev => {
+          const matched = prev.some(h => h.id === id);
+          console.log('[IzinScreen] update action', id, '→', newAction, 'matched:', matched);
+          return prev.map(h => h.id === id ? { ...h, action: newAction } : h);
+        });
+      }
+    });
+    return () => sub.remove();
   }, []);
 
   // Derived dari selectedPermit
@@ -364,7 +441,25 @@ export default function IzinScreen() {
     <View style={styles.root}>
       <AppHeader title="Pengajuan Izin" right={<HeaderActions />} />
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <PanGestureHandler
+        ref={panRef}
+        onGestureEvent={handleGestureEvent}
+        onHandlerStateChange={handleStateChange}
+        simultaneousHandlers={scrollRef}
+      >
+        <Animated.View style={{ flex: 1 }}>
+          <View style={styles.pullLoadingWrap}>
+            {refreshing && <ActivityIndicator color={colors.textTertiary} size="large" />}
+          </View>
+          <Animated.View style={{ flex: 1, transform: [{ translateY: pullY }] }}>
+            <ScrollView
+              ref={scrollRef}
+              showsVerticalScrollIndicator={false}
+              overScrollMode="never"
+              onScroll={e => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+              scrollEventThrottle={16}
+            >
+              <Animated.View style={{ opacity: contentOpacity }}>
         {loadingInit ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator color={colors.primary} />
@@ -737,7 +832,11 @@ export default function IzinScreen() {
           )}
         </View>
         <View style={{ height: 20 }} />
-      </ScrollView>
+              </Animated.View>
+            </ScrollView>
+          </Animated.View>
+        </Animated.View>
+      </PanGestureHandler>
 
       <AlertModal
         visible={alert.visible}
@@ -769,6 +868,11 @@ export default function IzinScreen() {
 const getStyles = (colors: ColorPalette) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.background },
+    pullLoadingWrap: {
+      position: 'absolute', top: 0, left: 0, right: 0,
+      height: LOADING_HEIGHT, justifyContent: 'center', alignItems: 'center',
+      backgroundColor: colors.background,
+    },
 
     loadingBox: { flex: 1, padding: 40, alignItems: "center" },
     body: { padding: 14 },

@@ -67,11 +67,23 @@ export interface AbsentCheck {
   time:     string;
   datetime: string;
   absent: {
-    code:  string; // "CM", "T", dll
+    code:  string;
     data:  string;
     name:  string;
     type:  'IN' | 'OUT';
     value: string;
+  };
+  double: {
+    info:   string;
+    icon:   string;
+    name:   string;
+    status: boolean; // false = sudah absen, tidak bisa absen lagi
+  };
+  location: {
+    info:   boolean | string;
+    icon:   string;
+    name:   string;
+    status: boolean; // true = absen via lokasi aktif
   };
   presence: {
     name:      string;
@@ -82,6 +94,7 @@ export interface AbsentCheck {
     onfinish:  string;
     offinish:  string;
     endfinish: string;
+    info:      string;
     locked:    boolean;
   };
 }
@@ -148,7 +161,7 @@ export interface PermitHistoryItem {
   permittance: string;
   starts:      string; // "YYYY-MM-DD HH:MM"
   finish:      string;
-  action:      'Waiting' | 'Approved' | 'Rejected';
+  action:      'Waiting' | 'Approve' | 'Reject'; // nilai asli dari API
   duration:    string;
   info:        string;
   attachment:  boolean;
@@ -178,7 +191,7 @@ export interface PermitReportItem {
   permit: string;
   start:  string;
   finish: string;
-  action: string; // "Approved" | "Pending" | "Rejected"
+  action: string; // "Waiting" | "Approve" | "Reject"
 }
 
 // ─── DataTable Response ───────────────────────────────────────────────────────

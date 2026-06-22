@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, Image, TouchableOpacity, StyleSheet,
 } from 'react-native';
@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { ColorPalette } from '../constants/Colors';
 import { useTheme } from '../context/ThemeContext';
 import { FontSize } from '../constants/Theme';
-import { buildNotifications } from '../services/NotificationService';
+import { useNotifBadge } from '../context/NotifBadgeContext';
 import NotificationModal from './NotificationModal';
 import ProfileModal from './ProfileModal';
 
@@ -21,24 +21,14 @@ export default function HeaderActions({ variant = 'compact' }: Props) {
   const { colors } = useTheme();
   const styles = React.useMemo(() => getStyles(colors), [colors]);
   const { user, logout } = useAuth();
+  const { unreadCount } = useNotifBadge();
   const [showNotif,   setShowNotif]   = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
 
   const size   = variant === 'hero' ? 34 : 32;
   const radius = size / 2;
 
-  function loadUnread() {
-    buildNotifications()
-      .then(ns => setUnreadCount(ns.filter(n => !n.dibaca).length))
-      .catch(() => {});
-  }
-
-  useEffect(() => { loadUnread(); }, []);
-
-  useEffect(() => {
-    if (!showNotif) loadUnread();
-  }, [showNotif]);
+  function handleOpenNotif() { setShowNotif(true); }
 
   const firstName = user?.name?.split(' ')[0] ?? '?';
   const avatarUri = user?.images
@@ -51,7 +41,7 @@ export default function HeaderActions({ variant = 'compact' }: Props) {
         {/* Notifikasi */}
         <TouchableOpacity
           style={[styles.notifBtn, { width: size, height: size, borderRadius: radius }]}
-          onPress={() => setShowNotif(true)}
+          onPress={handleOpenNotif}
           activeOpacity={0.75}
         >
           <Ionicons
@@ -89,7 +79,7 @@ export default function HeaderActions({ variant = 'compact' }: Props) {
         </TouchableOpacity>
       </View>
 
-      <NotificationModal visible={showNotif}   onClose={() => setShowNotif(false)} />
+      <NotificationModal visible={showNotif} onClose={() => setShowNotif(false)} />
       <ProfileModal      visible={showProfile} onClose={() => setShowProfile(false)} onLogout={logout} />
     </>
   );

@@ -10,11 +10,10 @@ import { getPermitHistory } from './permitService';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
     shouldShowBanner: true,
     shouldShowList:   true,
+    shouldPlaySound:  true,
+    shouldSetBadge:   true,
   }),
 });
 
@@ -99,6 +98,25 @@ export interface NotifItem {
 
 const STORAGE_KEY          = '@notif_read_v1';
 const SETTINGS_KEY         = '@notif_settings_v1';
+const WS_NOTIFS_KEY        = '@ws_notifs_v1';
+const WS_NOTIFS_MAX        = 50;
+
+export async function saveWsNotif(item: Omit<NotifItem, 'dibaca'>): Promise<void> {
+  try {
+    const raw      = await AsyncStorage.getItem(WS_NOTIFS_KEY);
+    const existing: Omit<NotifItem, 'dibaca'>[] = raw ? JSON.parse(raw) : [];
+    const deduped  = existing.filter(n => n.id !== item.id);
+    const updated  = [item, ...deduped].slice(0, WS_NOTIFS_MAX);
+    await AsyncStorage.setItem(WS_NOTIFS_KEY, JSON.stringify(updated));
+  } catch {}
+}
+
+async function getWsNotifs(): Promise<Omit<NotifItem, 'dibaca'>[]> {
+  try {
+    const raw = await AsyncStorage.getItem(WS_NOTIFS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
 
 export interface NotifSettings {
   reminderHarian:  boolean; // push reminder 06:30
@@ -186,21 +204,21 @@ export async function buildNotifications(): Promise<NotifItem[]> {
     getPermitHistory(0, 100),
   ]);
 
-  const raw: Omit<NotifItem, 'dibaca'>[] = [];
+  let raw: Omit<NotifItem, 'dibaca'>[] = [];
 
   // ── 1. Izin: status Approved / Rejected ──────────────────────────────────
   if (settings.statusIzin && permitRes.status === 'fulfilled') {
     const permits = permitRes.value.data.data ?? [];
     for (const p of permits) {
-      if (p.action !== 'Approved' && p.action !== 'Rejected') continue;
-      const tgl = p.starts.split(' ')[0];
+      if (p.action !== 'Approve' && p.action !== 'Reject') continue;
+      const tglIzin = p.starts.split(' ')[0];
       raw.push({
         id:        `permit_${p.id}_${p.action}`,
-        judul:     p.action === 'Approved' ? 'Izin Disetujui ✓' : 'Izin Ditolak',
-        pesan:     `Pengajuan izin ${p.permittance} tanggal ${formatTanggal(tgl)} telah ${p.action === 'Approved' ? 'disetujui' : 'ditolak'}.`,
-        waktu:     formatRelative(tgl, todayStr),
+        judul:     p.action === 'Approve' ? 'Izin Disetujui' : 'Izin Ditolak',
+        pesan:     `Pengajuan izin ${p.permittance} tanggal ${formatTanggal(tglIzin)} telah ${p.action === 'Approve' ? 'disetujui' : 'ditolak'}.`,
+        waktu:     'Baru-baru ini', // tanggal action tidak tersedia di API — WS entry akan menggantikan ini dengan waktu akurat
         tipe:      'izin',
-        timestamp: new Date(p.starts.replace(' ', 'T')).getTime(),
+        timestamp: Date.now() - 60000, // 1 menit lebih awal dari WS agar WS entry sort lebih atas
       });
     }
   }
@@ -274,6 +292,34 @@ export async function buildNotifications(): Promise<NotifItem[]> {
       });
     }
   }
+
+  // ── Merge WS notifications — WS entry punya waktu akurat, override API entry ──
+  const wsNotifs = await getWsNotifs();
+
+  // Dari WS, hanya tampilkan aksi TERBARU per permit (bukan semua riwayat).
+  // Misal: permit 98 punya entry "Waiting" dan "Approve" — hanya "Approve" (terbaru) yang tampil.
+  const latestWsPerPermit = new Map<string, Omit<NotifItem, 'dibaca'>>();
+  for (const notif of wsNotifs) {
+    const parts = notif.id.split('_'); // "permit_98_Approve" → ["permit", "98", "Approve"]
+    const groupKey = parts[0] === 'permit' ? `permit_${parts[1]}` : notif.id;
+    const existing = latestWsPerPermit.get(groupKey);
+    if (!existing || notif.timestamp > existing.timestamp) {
+      latestWsPerPermit.set(groupKey, notif);
+    }
+  }
+  const latestWsNotifs = [...latestWsPerPermit.values()];
+
+  // Hapus API entry yang sudah diwakili WS (berdasarkan permit ID, bukan action)
+  const wsPermitIds = new Set(
+    latestWsNotifs
+      .filter(n => n.id.startsWith('permit_'))
+      .map(n => n.id.split('_')[1])
+  );
+  const apiOnly = raw.filter(n => {
+    const parts = n.id.split('_');
+    return !(parts[0] === 'permit' && wsPermitIds.has(parts[1]));
+  });
+  raw = [...apiOnly, ...latestWsNotifs];
 
   // ── Gabungkan dengan status baca dari AsyncStorage ────────────────────────
   const readIds = await getReadIds();

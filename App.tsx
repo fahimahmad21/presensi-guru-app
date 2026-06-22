@@ -13,10 +13,21 @@ import {
   Poppins_600SemiBold,
   Poppins_700Bold,
 } from '@expo-google-fonts/poppins';
-import { AuthProvider } from './src/context/AuthContext';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ThemeProvider } from './src/context/ThemeContext';
+import { NotifBadgeProvider } from './src/context/NotifBadgeContext';
 import RootNavigator from './src/navigation';
-import { mintaIzinNotifikasi, jadwalkanReminderHarian, testNotifikasi } from './src/services/NotificationService';
+import { mintaIzinNotifikasi, jadwalkanReminderHarian } from './src/services/NotificationService';
+import { startWS, stopWS } from './src/services/wsService';
+
+function WSManager() {
+  const { isLoggedIn } = useAuth();
+  useEffect(() => {
+    if (isLoggedIn) startWS(); else stopWS();
+    return () => { if (!isLoggedIn) stopWS(); };
+  }, [isLoggedIn]);
+  return null;
+}
 
 SplashScreen.preventAutoHideAsync();
 
@@ -38,7 +49,6 @@ export default function App() {
       const izin = await mintaIzinNotifikasi();
       if (izin) {
         await jadwalkanReminderHarian();
-        await testNotifikasi(); // TEST — hapus setelah selesai testing
       }
     })();
 
@@ -58,6 +68,8 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
         <AuthProvider>
+          <NotifBadgeProvider>
+          <WSManager />
           <SafeAreaProvider>
             <NavigationContainer>
               <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
@@ -66,6 +78,7 @@ export default function App() {
               </View>
             </NavigationContainer>
           </SafeAreaProvider>
+          </NotifBadgeProvider>
         </AuthProvider>
       </ThemeProvider>
     </GestureHandlerRootView>

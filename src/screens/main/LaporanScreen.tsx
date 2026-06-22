@@ -372,7 +372,7 @@ function computeRangeStats(
           masukCode === 'NO' && absent!.finish ? 'lupa_masuk' :
           masukCode !== 'NO' && !absent!.finish ? 'lupa_pulang' : null;
         let permitOverlay: RekapItem['permitOverlay'] = null;
-        if (permit && permit.action !== 'Rejected') {
+        if (permit && permit.action !== 'Reject') {
           const isFullDay = !permit.finish || permit.finish === '23:59' || permit.finish === '00:00';
           if (!isFullDay) {
             permitOverlay = { name: permit.permit, start: permit.start, finish: permit.finish, isFullDay };
@@ -380,7 +380,7 @@ function computeRangeStats(
         }
         rekapList.push({ date: ds, status: presentStatus,
           start: absent!.start || null, finish: absent!.finish || null, permitName: null, note, permitOverlay });
-      } else if (permit && permit.action !== 'Rejected') {
+      } else if (permit && permit.action !== 'Reject') {
         izin++;
         rekapList.push({ date: ds, status: 'Izin',
           start: null, finish: null, permitName: permit.permit, note: null, permitOverlay: null });

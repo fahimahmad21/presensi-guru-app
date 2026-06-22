@@ -3,9 +3,10 @@ import * as SecureStore from 'expo-secure-store';
 import { BASE_URL, WEBSITE_TOKEN, WEBSITE_DOMAIN } from '../constants/api';
 
 export const AUTH_KEYS = {
-  API:   'Auth-Api',
-  KEY:   'Auth-Key',
-  TOKEN: 'Auth-Token',
+  API:    'Auth-Api',
+  KEY:    'Auth-Key',
+  TOKEN:  'Auth-Token',
+  SOCKET: 'Auth-Socket',
 };
 
 const apiClient = axios.create({
@@ -31,11 +32,12 @@ apiClient.interceptors.request.use(async (config) => {
   return config;
 });
 
-export async function saveAuthTokens(api: string, key: string, token: string) {
+export async function saveAuthTokens(api: string, key: string, token: string, socket?: string) {
   await Promise.all([
     SecureStore.setItemAsync(AUTH_KEYS.API,   api),
     SecureStore.setItemAsync(AUTH_KEYS.KEY,   key),
     SecureStore.setItemAsync(AUTH_KEYS.TOKEN, token),
+    socket ? SecureStore.setItemAsync(AUTH_KEYS.SOCKET, socket) : Promise.resolve(),
   ]);
 }
 
@@ -44,7 +46,12 @@ export async function clearAuthTokens() {
     SecureStore.deleteItemAsync(AUTH_KEYS.API),
     SecureStore.deleteItemAsync(AUTH_KEYS.KEY),
     SecureStore.deleteItemAsync(AUTH_KEYS.TOKEN),
+    SecureStore.deleteItemAsync(AUTH_KEYS.SOCKET),
   ]);
+}
+
+export async function getAuthSocket(): Promise<string | null> {
+  return SecureStore.getItemAsync(AUTH_KEYS.SOCKET);
 }
 
 export async function hasAuthTokens(): Promise<boolean> {

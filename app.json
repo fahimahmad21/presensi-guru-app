@@ -5,11 +5,15 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "icon": "./assets/logo.png",
     "splash": {
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
       "backgroundColor": "#1565C0"
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#1565C0"
       },
       "package": "id.bintangjuara.presensi",
@@ -22,7 +26,8 @@
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
         "android.permission.SCHEDULE_EXACT_ALARM",
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
@@ -39,9 +44,27 @@
           "cameraPermission": "Izin kamera diperlukan untuk foto absensi."
         }
       ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Izin lokasi diperlukan untuk verifikasi absensi.",
+          "locationWhenInUsePermission": "Izin lokasi diperlukan untuk verifikasi absensi."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Izin autentikasi diperlukan untuk verifikasi identitas."
+        }
+      ],
       "expo-font",
       "@react-native-community/datetimepicker",
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "bb2cd484-6cd2-4dc4-b3fd-9f8a34c599fe"
+      }
+    }
   }
 }

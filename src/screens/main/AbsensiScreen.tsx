@@ -9,7 +9,11 @@ import {
   Image,
   Animated,
 } from "react-native";
-import { ScrollView, PanGestureHandler, State as GestureState } from "react-native-gesture-handler";
+import {
+  ScrollView,
+  PanGestureHandler,
+  State as GestureState,
+} from "react-native-gesture-handler";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -17,8 +21,14 @@ import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import MapView, { Marker, Circle, PROVIDER_DEFAULT } from "react-native-maps";
 import * as Location from "expo-location";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { DeviceEventEmitter } from "react-native";
 import { useAuth } from "../../context/AuthContext";
-import { AbsentInfo, AbsentCheck, AbsentHistoryItem, MainTabParamList } from "../../types";
+import {
+  AbsentInfo,
+  AbsentCheck,
+  AbsentHistoryItem,
+  MainTabParamList,
+} from "../../types";
 import {
   getAbsentInfo,
   getAbsentCheck,
@@ -102,7 +112,7 @@ function groupHistoryPerHari(items: AbsentHistoryItem[]): RiwayatHarian[] {
     }
   }
   return Array.from(map.values()).sort((a, b) =>
-    b.dateKey.localeCompare(a.dateKey)
+    b.dateKey.localeCompare(a.dateKey),
   );
 }
 
@@ -134,17 +144,17 @@ export default function AbsensiScreen() {
   const [loadingInit, setLoadingInit] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const pullY        = useRef(new Animated.Value(0)).current;
-  const scrollYRef      = useRef(0);
+  const pullY = useRef(new Animated.Value(0)).current;
+  const scrollYRef = useRef(0);
   const isRefreshingRef = useRef(false);
-  const panRef          = useRef<any>(null);
-  const scrollRef       = useRef<any>(null);
-  const PULL_THRESHOLD  = 80;
-  const LOADING_HEIGHT  = 60;
+  const panRef = useRef<any>(null);
+  const scrollRef = useRef<any>(null);
+  const PULL_THRESHOLD = 80;
+  const LOADING_HEIGHT = 60;
   const heroOverlayOpacity = pullY.interpolate({
     inputRange: [0, LOADING_HEIGHT],
     outputRange: [0, 0.75],
-    extrapolate: 'clamp',
+    extrapolate: "clamp",
   });
   const contentOpacity = useRef(new Animated.Value(1)).current;
 
@@ -195,36 +205,74 @@ export default function AbsensiScreen() {
   const doRefresh = useCallback(async () => {
     await Promise.all([
       loadData(),
-      getAllAbsentHistory().then(res => setAllHistory(res.data.data ?? [])),
+      getAllAbsentHistory().then((res) => setAllHistory(res.data.data ?? [])),
     ]);
   }, [loadData]);
 
   const handleGestureEvent = useCallback(({ nativeEvent }: any) => {
     const { translationY } = nativeEvent;
-    if (scrollYRef.current < 5 && translationY > 0 && !isRefreshingRef.current) {
+    if (
+      scrollYRef.current < 5 &&
+      translationY > 0 &&
+      !isRefreshingRef.current
+    ) {
       pullY.setValue(Math.min(translationY * 0.45, LOADING_HEIGHT * 2));
     }
   }, []);
 
-  const handleStateChange = useCallback(({ nativeEvent }: any) => {
-    const { state, translationY } = nativeEvent;
-    if (state === GestureState.END || state === GestureState.CANCELLED || state === GestureState.FAILED) {
-      if (translationY >= PULL_THRESHOLD && scrollYRef.current < 5 && !isRefreshingRef.current) {
-        isRefreshingRef.current = true;
-        setRefreshing(true);
-        Animated.spring(pullY, { toValue: LOADING_HEIGHT, useNativeDriver: true, tension: 40, friction: 8 }).start();
-        Animated.timing(contentOpacity, { toValue: 0.25, duration: 200, useNativeDriver: true }).start();
-        doRefresh().finally(() => {
-          setRefreshing(false);
-          isRefreshingRef.current = false;
-          Animated.spring(pullY, { toValue: 0, useNativeDriver: true, tension: 40, friction: 8 }).start();
-          Animated.timing(contentOpacity, { toValue: 1, duration: 300, useNativeDriver: true }).start();
-        });
-      } else if (!isRefreshingRef.current) {
-        Animated.spring(pullY, { toValue: 0, useNativeDriver: true, tension: 40, friction: 8 }).start();
+  const handleStateChange = useCallback(
+    ({ nativeEvent }: any) => {
+      const { state, translationY } = nativeEvent;
+      if (
+        state === GestureState.END ||
+        state === GestureState.CANCELLED ||
+        state === GestureState.FAILED
+      ) {
+        if (
+          translationY >= PULL_THRESHOLD &&
+          scrollYRef.current < 5 &&
+          !isRefreshingRef.current
+        ) {
+          isRefreshingRef.current = true;
+          setRefreshing(true);
+          Animated.spring(pullY, {
+            toValue: LOADING_HEIGHT,
+            useNativeDriver: true,
+            tension: 40,
+            friction: 8,
+          }).start();
+          Animated.timing(contentOpacity, {
+            toValue: 0.25,
+            duration: 200,
+            useNativeDriver: true,
+          }).start();
+          doRefresh().finally(() => {
+            setRefreshing(false);
+            isRefreshingRef.current = false;
+            Animated.spring(pullY, {
+              toValue: 0,
+              useNativeDriver: true,
+              tension: 40,
+              friction: 8,
+            }).start();
+            Animated.timing(contentOpacity, {
+              toValue: 1,
+              duration: 300,
+              useNativeDriver: true,
+            }).start();
+          });
+        } else if (!isRefreshingRef.current) {
+          Animated.spring(pullY, {
+            toValue: 0,
+            useNativeDriver: true,
+            tension: 40,
+            friction: 8,
+          }).start();
+        }
       }
-    }
-  }, [doRefresh]);
+    },
+    [doRefresh],
+  );
 
   useEffect(() => {
     loadData();
@@ -232,20 +280,25 @@ export default function AbsensiScreen() {
 
   useEffect(() => {
     getAllAbsentHistory()
-      .then(res => setAllHistory(res.data.data ?? []))
+      .then((res) => setAllHistory(res.data.data ?? []))
       .catch(() => {});
   }, []);
+
+  // Refresh otomatis saat admin hapus / nonaktifkan absensi via WS
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('ws:absent', () => { doRefresh(); });
+    return () => sub.remove();
+  }, [doRefresh]);
 
   // Derived
   const sekolahLat = parseFloat(absentInfo?.maps.lat ?? "0");
   const sekolahLng = parseFloat(absentInfo?.maps.lng ?? "0");
-  // const sekolahRadius = 50000;
-  const sekolahRadius = parseInt(absentInfo?.maps.radius ?? "100");
+  const sekolahRadius = parseInt(absentInfo?.maps.radius ?? "1000");
   const sekolahNama = absentInfo?.name ?? "Sekolah";
 
   const groupedHistory = React.useMemo(
     () => groupHistoryPerHari(history),
-    [history]
+    [history],
   );
   const RIWAYAT_LIMIT = 5;
 
@@ -253,10 +306,18 @@ export default function AbsensiScreen() {
   const todayOUT = history.find((h) => h.type === "OUT" && isToday(h.date));
   const checkInTime = todayIN ? formatJam(todayIN.date) : null;
   const checkOutTime = todayOUT ? formatJam(todayOUT.date) : null;
-  const aksiAbsen = (todayIN || isPastDeadline(checkStatus?.presence.endstart)) ? "keluar" : "masuk";
+  const aksiAbsen = checkStatus?.absent.type === "OUT" ? "keluar" : "masuk";
+
+  const lokasiAktif = checkStatus?.location.status === true;
+  const sudahAbsen  = checkStatus?.double.status === false;
+  const btnDisabled = !lokasiAktif || sudahAbsen;
+  const btnDisabledMsg = !lokasiAktif
+    ? "Absensi via perangkat fingerprint"
+    : (checkStatus?.double.info ?? "Anda sudah absen");
 
   const firstName = user?.name?.split(" ")[0] ?? "Guru";
-  const sapaanGender = user?.gender === 'male' ? 'Bapak' : user?.gender === 'female' ? 'Ibu' : '';
+  const sapaanGender =
+    user?.gender === "male" ? "Bapak" : user?.gender === "female" ? "Ibu" : "";
   const today = new Date().toLocaleDateString("id-ID", {
     weekday: "long",
     day: "numeric",
@@ -276,8 +337,10 @@ export default function AbsensiScreen() {
       ? { bg: colors.errorLight, text: colors.error }
       : { bg: colors.warningLight, text: colors.warning };
 
-  const lupaMasuk  = !checkInTime  && isPastDeadline(checkStatus?.presence.endstart);
-  const lupaPulang = !checkOutTime && isPastDeadline(checkStatus?.presence.endfinish);
+  const lupaMasuk =
+    !checkInTime && isPastDeadline(checkStatus?.presence.endstart);
+  const lupaPulang =
+    !checkOutTime && isPastDeadline(checkStatus?.presence.endfinish);
 
   const mapInitial = {
     latitude: userCoords?.lat ?? (sekolahLat || -7.022846),
@@ -422,7 +485,10 @@ export default function AbsensiScreen() {
       >
         <View style={styles.headerTop}>
           <View style={styles.headerInfo}>
-            <Text style={styles.greeting}>Assalamu'alaikum, {sapaanGender ? `${sapaanGender} ${firstName}` : firstName}</Text>
+            <Text style={styles.greeting}>
+              Assalamu'alaikum,{" "}
+              {sapaanGender ? `${sapaanGender} ${firstName}` : firstName}
+            </Text>
             <Text style={styles.subGreeting}>Absensi Guru</Text>
           </View>
           <HeaderActions variant="hero" />
@@ -436,236 +502,369 @@ export default function AbsensiScreen() {
         simultaneousHandlers={scrollRef}
       >
         <Animated.View style={{ flex: 1 }}>
-        <View style={styles.pullLoadingWrap}>
-          {refreshing && <ActivityIndicator color={colors.textTertiary} size="large" />}
-        </View>
-        <Animated.View style={{ flex: 1, transform: [{ translateY: pullY }] }}>
-        <ScrollView
-          ref={scrollRef}
-          simultaneousHandlers={panRef}
-          showsVerticalScrollIndicator={false}
-          overScrollMode="never"
-          onScroll={e => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
-          scrollEventThrottle={16}
-        >
-        <LinearGradient
-          colors={headerColors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroCurve}
-        >
-          <View style={styles.heroDateWrap}>
-            <Ionicons name="calendar-outline" size={12} color="#fff" />
-            <Text style={styles.heroDate}>{today}</Text>
-          </View>
-          <Animated.View style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.background, opacity: heroOverlayOpacity }]} />
-        </LinearGradient>
-
-        <Animated.View style={{ opacity: contentOpacity }}>
-        <View style={styles.body}>
-          {/* ── KARTU ABSENSI ── */}
-          <View style={[styles.attendCard, Shadow.md]}>
-            <View style={styles.attendTop}>
-              <Text style={styles.cardTitle}>Presensi Hari Ini</Text>
-              <View style={[styles.badge, { backgroundColor: badgeColor.bg }]}>
-                <Text style={[styles.badgeText, { color: badgeColor.text }]}>
-                  {todayStatus}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.timesRow}>
-              <View style={styles.timeBox}>
-                <Text style={styles.timeLabel}>Jam Masuk</Text>
-                <Text
-                  style={[
-                    styles.timeVal,
-                    !checkInTime && (lupaMasuk ? styles.timeLupa : styles.timeEmpty),
-                  ]}
-                >
-                  {checkInTime ?? (lupaMasuk ? "Lupa Masuk" : "--:--")}
-                </Text>
-              </View>
-              <View style={styles.timeBox}>
-                <Text style={styles.timeLabel}>Jam Keluar</Text>
-                <Text
-                  style={[
-                    styles.timeVal,
-                    !checkOutTime && (lupaPulang ? styles.timeLupa : styles.timeEmpty),
-                  ]}
-                >
-                  {checkOutTime ?? (lupaPulang ? "Lupa Pulang" : "--:--")}
-                </Text>
-              </View>
-            </View>
-            {checkOutTime ? (
-              <View style={styles.checkBtn}>
-                <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                <View>
-                  <Text style={styles.checkBtnText}>Absensi Selesai</Text>
-                  <Text style={styles.checkBtnSub}>Sampai Jumpa Besok Hari</Text>
-                </View>
-              </View>
-            ) : (
-              <TouchableOpacity
-                style={styles.checkBtn}
-                onPress={bukaModalLokasi}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="location" size={20} color="#fff" />
-                <View>
-                  <Text style={styles.checkBtnText}>Absen Via Lokasi</Text>
-                  <Text style={styles.checkBtnSub}>
-                    {aksiAbsen === "masuk" ? "Absen Masuk" : "Absen Keluar"}
-                  </Text>
-                </View>
-              </TouchableOpacity>
+          <View style={styles.pullLoadingWrap}>
+            {refreshing && (
+              <ActivityIndicator color={colors.textTertiary} size="large" />
             )}
           </View>
+          <Animated.View
+            style={{ flex: 1, transform: [{ translateY: pullY }] }}
+          >
+            <ScrollView
+              ref={scrollRef}
+              simultaneousHandlers={panRef}
+              showsVerticalScrollIndicator={false}
+              overScrollMode="never"
+              onScroll={(e) => {
+                scrollYRef.current = e.nativeEvent.contentOffset.y;
+              }}
+              scrollEventThrottle={16}
+            >
+              <LinearGradient
+                colors={headerColors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.heroCurve}
+              >
+                <View style={styles.heroDateWrap}>
+                  <Ionicons name="calendar-outline" size={12} color="#fff" />
+                  <Text style={styles.heroDate}>{today}</Text>
+                </View>
+                <Animated.View
+                  style={[
+                    StyleSheet.absoluteFillObject,
+                    {
+                      backgroundColor: colors.background,
+                      opacity: heroOverlayOpacity,
+                    },
+                  ]}
+                />
+              </LinearGradient>
 
-          {/* ── INFO SHIFT ── */}
-          {absentInfo?.data && (
-            <View style={[styles.shiftCard, Shadow.sm]}>
-              <Ionicons name="time-outline" size={15} color={colors.primary} />
-              <Text style={styles.shiftText}>
-                <Text style={{ fontFamily: "Poppins_600SemiBold" }}>
-                  {absentInfo.data.name}
-                </Text>
-                {"  ·  "}Masuk{" "}
-                <Text
-                  style={{
-                    color: colors.statusHadir,
-                    fontFamily: "Poppins_600SemiBold",
-                  }}
-                >
-                  {absentInfo.data.input.slice(0, 5)}
-                </Text>
-                {"  ·  "}Keluar{" "}
-                <Text
-                  style={{
-                    color: colors.statusAlpha,
-                    fontFamily: "Poppins_600SemiBold",
-                  }}
-                >
-                  {absentInfo.data.output.slice(0, 5)}
-                </Text>
-              </Text>
-            </View>
-          )}
-
-          {/* ── STATISTIK ── */}
-          <View style={styles.sumStrip}>
-            {[
-              { num: allHistory.filter((h) => h.type === "IN"  && h.valid).length, label: "Masuk",   color: colors.statusHadir },
-              { num: allHistory.filter((h) => h.type === "OUT" && h.valid).length, label: "Keluar",  color: colors.statusIzin  },
-              { num: allHistory.filter((h) => !h.valid).length,                    label: "Invalid", color: colors.statusAlpha },
-              { num: allHistory.length,                                             label: "Total",   color: colors.primary     },
-            ].map((item) => (
-              <View key={item.label} style={[styles.sumItem, Shadow.sm]}>
-                <Text style={[styles.sumNum, { color: item.color }]}>{item.num}</Text>
-                <Text style={styles.sumLabel}>{item.label}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* ── RIWAYAT ── */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Riwayat Absensi</Text>
-          </View>
-
-          {groupedHistory.length === 0 ? (
-            <View style={[styles.emptyBox, Shadow.sm]}>
-              <Ionicons
-                name="calendar-outline"
-                size={36}
-                color={colors.textHint}
-              />
-              <Text style={styles.emptyText}>Belum ada riwayat absensi</Text>
-            </View>
-          ) : (
-            <>
-              {groupedHistory.slice(0, RIWAYAT_LIMIT).map((g) => {
-                const masukSc = g.masuk
-                  ? !g.masuk.valid
-                    ? STATUS_CFG.INV
-                    : STATUS_CFG.IN
-                  : null;
-                const pulangSc = g.pulang
-                  ? !g.pulang.valid
-                    ? STATUS_CFG.INV
-                    : STATUS_CFG.OUT
-                  : null;
-                return (
-                  <View key={g.dateKey} style={[styles.histItem, Shadow.sm]}>
-                    <View style={styles.dateBox}>
-                      <Text style={styles.dateDay}>{g.tgl}</Text>
-                      <Text style={styles.dateMonth}>{g.bln}</Text>
+              <Animated.View style={{ opacity: contentOpacity }}>
+                <View style={styles.body}>
+                  {/* ── KARTU ABSENSI ── */}
+                  <View style={[styles.attendCard, Shadow.md]}>
+                    <View style={styles.attendTop}>
+                      <Text style={styles.cardTitle}>Presensi Hari Ini</Text>
+                      <View
+                        style={[
+                          styles.badge,
+                          { backgroundColor: badgeColor.bg },
+                        ]}
+                      >
+                        <Text
+                          style={[styles.badgeText, { color: badgeColor.text }]}
+                        >
+                          {todayStatus}
+                        </Text>
+                      </View>
                     </View>
-
-                    <View style={styles.histCol}>
-                      {g.masuk && masukSc ? (
-                        <>
-                          <Text style={[styles.histJam, { color: masukSc.color }]}>
-                            {formatJam(g.masuk.date)}
+                    <View style={styles.timesRow}>
+                      <View style={styles.timeBox}>
+                        <Text style={styles.timeLabel}>Jam Masuk</Text>
+                        <Text
+                          style={[
+                            styles.timeVal,
+                            !checkInTime &&
+                              (lupaMasuk ? styles.timeLupa : styles.timeEmpty),
+                          ]}
+                        >
+                          {checkInTime ?? (lupaMasuk ? "Lupa Masuk" : "--:--")}
+                        </Text>
+                      </View>
+                      <View style={styles.timeBox}>
+                        <Text style={styles.timeLabel}>Jam Keluar</Text>
+                        <Text
+                          style={[
+                            styles.timeVal,
+                            !checkOutTime &&
+                              (lupaPulang ? styles.timeLupa : styles.timeEmpty),
+                          ]}
+                        >
+                          {checkOutTime ??
+                            (lupaPulang ? "Lupa Pulang" : "--:--")}
+                        </Text>
+                      </View>
+                    </View>
+                    {checkOutTime && !lokasiAktif ? (
+                      <View style={styles.checkBtn}>
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={20}
+                          color="#fff"
+                        />
+                        <View>
+                          <Text style={styles.checkBtnText}>
+                            Absensi Selesai
                           </Text>
-                          <View style={[styles.chip, { backgroundColor: masukSc.bg }]}>
-                            <Text style={[styles.chipText, { color: masukSc.color }]}>
-                              {masukSc.label}
+                          <Text style={styles.checkBtnSub}>
+                            Sampai Jumpa Besok Hari
+                          </Text>
+                        </View>
+                      </View>
+                    ) : (
+                      <>
+                        <TouchableOpacity
+                          style={[
+                            styles.checkBtn,
+                            btnDisabled && styles.checkBtnDisabled,
+                          ]}
+                          onPress={btnDisabled ? undefined : bukaModalLokasi}
+                          disabled={btnDisabled}
+                          activeOpacity={0.85}
+                        >
+                          <Ionicons name="location" size={20} color="#fff" />
+                          <View>
+                            <Text style={styles.checkBtnText}>
+                              Absen Via Lokasi
+                            </Text>
+                            <Text style={styles.checkBtnSub}>
+                              {aksiAbsen === "masuk"
+                                ? "Absen Masuk"
+                                : "Absen Keluar"}
                             </Text>
                           </View>
-                        </>
-                      ) : (
-                        <Text style={[styles.histJamEmpty, styles.histJamEmptySmall]}>
-                          {isToday(g.dateKey) && !isPastDeadline(checkStatus?.presence.endstart)
-                            ? "--:--"
-                            : "Lupa\nmasuk"}
-                        </Text>
-                      )}
-                    </View>
-
-                    <View style={styles.histColDivider} />
-
-                    <View style={styles.histCol}>
-                      {g.pulang && pulangSc ? (
-                        <>
-                          <Text style={[styles.histJam, { color: pulangSc.color }]}>
-                            {formatJam(g.pulang.date)}
+                        </TouchableOpacity>
+                        {btnDisabled && (
+                          <Text style={styles.checkBtnMsg}>
+                            {btnDisabledMsg}
                           </Text>
-                          <View style={[styles.chip, { backgroundColor: pulangSc.bg }]}>
-                            <Text style={[styles.chipText, { color: pulangSc.color }]}>
-                              {pulangSc.label}
-                            </Text>
-                          </View>
-                        </>
-                      ) : (
-                        <Text style={[styles.histJamEmpty, styles.histJamEmptySmall]}>
-                          {isToday(g.dateKey) && !isPastDeadline(checkStatus?.presence.endfinish)
-                            ? "Belum\npulang"
-                            : "Lupa\npulang"}
-                        </Text>
-                      )}
-                    </View>
+                        )}
+                      </>
+                    )}
                   </View>
-                );
-              })}
 
-              {groupedHistory.length > RIWAYAT_LIMIT && (
-                <TouchableOpacity
-                  style={styles.lihatSemuaBtn}
-                  onPress={() => navigation.navigate("Laporan")}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.lihatSemuaText}>Lihat Semua Riwayat</Text>
-                  <Ionicons name="chevron-forward" size={16} color={colors.primary} />
-                </TouchableOpacity>
-              )}
-            </>
-          )}
+                  {/* ── INFO SHIFT ── */}
+                  {absentInfo?.data && (
+                    <View style={[styles.shiftCard, Shadow.sm]}>
+                      <Ionicons
+                        name="time-outline"
+                        size={15}
+                        color={colors.primary}
+                      />
+                      <Text style={styles.shiftText}>
+                        <Text style={{ fontFamily: "Poppins_600SemiBold" }}>
+                          {absentInfo.data.name}
+                        </Text>
+                        {"  ·  "}Masuk{" "}
+                        <Text
+                          style={{
+                            color: colors.statusHadir,
+                            fontFamily: "Poppins_600SemiBold",
+                          }}
+                        >
+                          {absentInfo.data.input.slice(0, 5)}
+                        </Text>
+                        {"  ·  "}Keluar{" "}
+                        <Text
+                          style={{
+                            color: colors.statusAlpha,
+                            fontFamily: "Poppins_600SemiBold",
+                          }}
+                        >
+                          {absentInfo.data.output.slice(0, 5)}
+                        </Text>
+                      </Text>
+                    </View>
+                  )}
 
-          <View style={{ height: 20 }} />
-        </View>
-        </Animated.View>
-      </ScrollView>
-        </Animated.View>
+                  {/* ── STATISTIK ── */}
+                  <View style={styles.sumStrip}>
+                    {[
+                      {
+                        num: allHistory.filter(
+                          (h) => h.type === "IN" && h.valid,
+                        ).length,
+                        label: "Masuk",
+                        color: colors.statusHadir,
+                      },
+                      {
+                        num: allHistory.filter(
+                          (h) => h.type === "OUT" && h.valid,
+                        ).length,
+                        label: "Keluar",
+                        color: colors.statusIzin,
+                      },
+                      {
+                        num: allHistory.filter((h) => !h.valid).length,
+                        label: "Invalid",
+                        color: colors.statusAlpha,
+                      },
+                      {
+                        num: allHistory.length,
+                        label: "Total",
+                        color: colors.primary,
+                      },
+                    ].map((item) => (
+                      <View
+                        key={item.label}
+                        style={[styles.sumItem, Shadow.sm]}
+                      >
+                        <Text style={[styles.sumNum, { color: item.color }]}>
+                          {item.num}
+                        </Text>
+                        <Text style={styles.sumLabel}>{item.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* ── RIWAYAT ── */}
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Riwayat Absensi</Text>
+                  </View>
+
+                  {groupedHistory.length === 0 ? (
+                    <View style={[styles.emptyBox, Shadow.sm]}>
+                      <Ionicons
+                        name="calendar-outline"
+                        size={36}
+                        color={colors.textHint}
+                      />
+                      <Text style={styles.emptyText}>
+                        Belum ada riwayat absensi
+                      </Text>
+                    </View>
+                  ) : (
+                    <>
+                      {groupedHistory.slice(0, RIWAYAT_LIMIT).map((g) => {
+                        const masukSc = g.masuk
+                          ? !g.masuk.valid
+                            ? STATUS_CFG.INV
+                            : STATUS_CFG.IN
+                          : null;
+                        const pulangSc = g.pulang
+                          ? !g.pulang.valid
+                            ? STATUS_CFG.INV
+                            : STATUS_CFG.OUT
+                          : null;
+                        return (
+                          <View
+                            key={g.dateKey}
+                            style={[styles.histItem, Shadow.sm]}
+                          >
+                            <View style={styles.dateBox}>
+                              <Text style={styles.dateDay}>{g.tgl}</Text>
+                              <Text style={styles.dateMonth}>{g.bln}</Text>
+                            </View>
+
+                            <View style={styles.histCol}>
+                              {g.masuk && masukSc ? (
+                                <>
+                                  <Text
+                                    style={[
+                                      styles.histJam,
+                                      { color: masukSc.color },
+                                    ]}
+                                  >
+                                    {formatJam(g.masuk.date)}
+                                  </Text>
+                                  <View
+                                    style={[
+                                      styles.chip,
+                                      { backgroundColor: masukSc.bg },
+                                    ]}
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.chipText,
+                                        { color: masukSc.color },
+                                      ]}
+                                    >
+                                      {masukSc.label}
+                                    </Text>
+                                  </View>
+                                </>
+                              ) : (
+                                <Text
+                                  style={[
+                                    styles.histJamEmpty,
+                                    styles.histJamEmptySmall,
+                                  ]}
+                                >
+                                  {isToday(g.dateKey) &&
+                                  !isPastDeadline(
+                                    checkStatus?.presence.endstart,
+                                  )
+                                    ? "--:--"
+                                    : "Lupa\nmasuk"}
+                                </Text>
+                              )}
+                            </View>
+
+                            <View style={styles.histColDivider} />
+
+                            <View style={styles.histCol}>
+                              {g.pulang && pulangSc ? (
+                                <>
+                                  <Text
+                                    style={[
+                                      styles.histJam,
+                                      { color: pulangSc.color },
+                                    ]}
+                                  >
+                                    {formatJam(g.pulang.date)}
+                                  </Text>
+                                  <View
+                                    style={[
+                                      styles.chip,
+                                      { backgroundColor: pulangSc.bg },
+                                    ]}
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.chipText,
+                                        { color: pulangSc.color },
+                                      ]}
+                                    >
+                                      {pulangSc.label}
+                                    </Text>
+                                  </View>
+                                </>
+                              ) : (
+                                <Text
+                                  style={[
+                                    styles.histJamEmpty,
+                                    styles.histJamEmptySmall,
+                                  ]}
+                                >
+                                  {isToday(g.dateKey) &&
+                                  !isPastDeadline(
+                                    checkStatus?.presence.endfinish,
+                                  )
+                                    ? "Belum\npulang"
+                                    : "Lupa\npulang"}
+                                </Text>
+                              )}
+                            </View>
+                          </View>
+                        );
+                      })}
+
+                      {groupedHistory.length > RIWAYAT_LIMIT && (
+                        <TouchableOpacity
+                          style={styles.lihatSemuaBtn}
+                          onPress={() => navigation.navigate("Laporan")}
+                          activeOpacity={0.75}
+                        >
+                          <Text style={styles.lihatSemuaText}>
+                            Lihat Semua Riwayat
+                          </Text>
+                          <Ionicons
+                            name="chevron-forward"
+                            size={16}
+                            color={colors.primary}
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </>
+                  )}
+
+                  <View style={{ height: 20 }} />
+                </View>
+              </Animated.View>
+            </ScrollView>
+          </Animated.View>
         </Animated.View>
       </PanGestureHandler>
 
@@ -818,7 +1017,10 @@ export default function AbsensiScreen() {
               <View style={styles.kameraBottom}>
                 <TouchableOpacity
                   style={styles.kameraAksiBtn}
-                  onPress={() => { setFotoUri(null); setFotoBase64(null); }}
+                  onPress={() => {
+                    setFotoUri(null);
+                    setFotoBase64(null);
+                  }}
                   disabled={submitting}
                   activeOpacity={0.85}
                 >
@@ -826,7 +1028,11 @@ export default function AbsensiScreen() {
                   <Text style={styles.kameraAksiBtnText}>Ambil Ulang</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.kameraAksiBtn, styles.kameraAksiBtnPrimary, submitting && { opacity: 0.7 }]}
+                  style={[
+                    styles.kameraAksiBtn,
+                    styles.kameraAksiBtnPrimary,
+                    submitting && { opacity: 0.7 },
+                  ]}
                   onPress={konfirmasiAbsen}
                   disabled={submitting}
                   activeOpacity={0.85}
@@ -835,9 +1041,14 @@ export default function AbsensiScreen() {
                     <ActivityIndicator color="#fff" />
                   ) : (
                     <>
-                      <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={18}
+                        color="#fff"
+                      />
                       <Text style={styles.kameraAksiBtnText}>
-                        Konfirmasi Absen {aksiAbsen === "masuk" ? "Masuk" : "Keluar"}
+                        Konfirmasi Absen{" "}
+                        {aksiAbsen === "masuk" ? "Masuk" : "Keluar"}
                       </Text>
                     </>
                   )}
@@ -847,12 +1058,21 @@ export default function AbsensiScreen() {
           ) : !camPermission?.granted ? (
             /* ── MINTA IZIN KAMERA ── */
             <View style={styles.kameraPermWrap}>
-              <Ionicons name="camera-outline" size={64} color="rgba(255,255,255,0.5)" />
+              <Ionicons
+                name="camera-outline"
+                size={64}
+                color="rgba(255,255,255,0.5)"
+              />
               <Text style={styles.kameraPermText}>
                 Izin kamera diperlukan untuk foto absensi
               </Text>
-              <TouchableOpacity style={styles.kameraPermBtn} onPress={requestCamPermission}>
-                <Text style={styles.kameraPermBtnText}>Berikan Izin Kamera</Text>
+              <TouchableOpacity
+                style={styles.kameraPermBtn}
+                onPress={requestCamPermission}
+              >
+                <Text style={styles.kameraPermBtnText}>
+                  Berikan Izin Kamera
+                </Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -865,10 +1085,16 @@ export default function AbsensiScreen() {
               />
               <View style={styles.kameraHeader}>
                 <Text style={styles.kameraJudul}>Foto Wajah</Text>
-                <Text style={styles.kameraSubJudul}>Pastikan wajah terlihat jelas</Text>
+                <Text style={styles.kameraSubJudul}>
+                  Pastikan wajah terlihat jelas
+                </Text>
               </View>
               <View style={styles.kameraBottom}>
-                <TouchableOpacity style={styles.shutterBtn} onPress={ambilFoto} activeOpacity={0.8}>
+                <TouchableOpacity
+                  style={styles.shutterBtn}
+                  onPress={ambilFoto}
+                  activeOpacity={0.8}
+                >
                   <View style={styles.shutterInner} />
                 </TouchableOpacity>
               </View>
@@ -899,419 +1125,450 @@ export default function AbsensiScreen() {
   );
 }
 
-const getStyles = (colors: ColorPalette) => StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
+const getStyles = (colors: ColorPalette) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.background },
 
-  headerBlend: { elevation: 0, shadowOpacity: 0 },
-  headerTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  headerInfo: { flex: 1, paddingRight: 12 },
-  greeting: {
-    color: "#fff",
-    fontSize: FontSize.sm,
-    fontFamily: "Poppins_700Bold",
-  },
-  subGreeting: {
-    color: "rgba(255,255,255,0.78)",
-    fontSize: 11,
-    fontFamily: "Poppins_400Regular",
-    marginTop: 1,
-  },
-  heroCurve: {
-    height: 180,
-    paddingHorizontal: 18,
-    paddingTop: 18,
-    paddingBottom: 12,
-    borderBottomLeftRadius: 34,
-    borderBottomRightRadius: 34,
-    overflow: "hidden",
-    justifyContent: "flex-start",
-  },
-  heroDateWrap: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(255,255,255,0.18)",
-    borderRadius: 20,
-    paddingHorizontal: 11,
-    paddingVertical: 5,
-  },
-  heroDate: {
-    color: "#fff",
-    fontSize: FontSize.xs,
-    fontFamily: "Poppins_600SemiBold",
-  },
+    headerBlend: { elevation: 0, shadowOpacity: 0 },
+    headerTop: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    headerInfo: { flex: 1, paddingRight: 12 },
+    greeting: {
+      color: "#fff",
+      fontSize: FontSize.sm,
+      fontFamily: "Poppins_700Bold",
+    },
+    subGreeting: {
+      color: "rgba(255,255,255,0.78)",
+      fontSize: 11,
+      fontFamily: "Poppins_400Regular",
+      marginTop: 1,
+    },
+    heroCurve: {
+      height: 180,
+      paddingHorizontal: 18,
+      paddingTop: 18,
+      paddingBottom: 12,
+      borderBottomLeftRadius: 34,
+      borderBottomRightRadius: 34,
+      overflow: "hidden",
+      justifyContent: "flex-start",
+    },
+    heroDateWrap: {
+      alignSelf: "flex-start",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: "rgba(255,255,255,0.18)",
+      borderRadius: 20,
+      paddingHorizontal: 11,
+      paddingVertical: 5,
+    },
+    heroDate: {
+      color: "#fff",
+      fontSize: FontSize.xs,
+      fontFamily: "Poppins_600SemiBold",
+    },
 
-  body: { paddingHorizontal: 14, marginTop: -100 },
+    body: { paddingHorizontal: 14, marginTop: -100 },
 
-  attendCard: {
-    backgroundColor: colors.white,
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 12,
-  },
-  attendTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 14,
-  },
-  cardTitle: {
-    fontSize: FontSize.md,
-    fontFamily: "Poppins_600SemiBold",
-    color: colors.textPrimary,
-  },
-  badge: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4 },
-  badgeText: { fontSize: FontSize.xs - 1, fontFamily: "Poppins_600SemiBold" },
-  timesRow: { flexDirection: "row", gap: 12, marginBottom: 14 },
-  timeBox: {
-    flex: 1,
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 12,
-    alignItems: "center",
-  },
-  timeLabel: {
-    fontSize: FontSize.xs,
-    color: colors.textTertiary,
-    marginBottom: 4,
-  },
-  timeVal: {
-    fontSize: 26,
-    fontFamily: "Poppins_700Bold",
-    color: colors.textPrimary,
-  },
-  timeEmpty: { color: colors.textHint },
-  timeLupa: { color: colors.error, fontSize: FontSize.sm },
-  checkBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    backgroundColor: colors.primary,
-    paddingVertical: 15,
-    borderRadius: 14,
-  },
-  checkBtnDone: {
-    backgroundColor: colors.successLight,
-  },
-  checkBtnText: {
-    color: "#fff",
-    fontSize: FontSize.md,
-    fontFamily: "Poppins_600SemiBold",
-  },
-  checkBtnSub: {
-    color: "rgba(255,255,255,0.8)",
-    fontSize: FontSize.xs - 2,
-    fontFamily: "Poppins_400Regular",
-  },
+    attendCard: {
+      backgroundColor: colors.white,
+      borderRadius: 20,
+      padding: 18,
+      marginBottom: 12,
+    },
+    attendTop: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 14,
+    },
+    cardTitle: {
+      fontSize: FontSize.md,
+      fontFamily: "Poppins_600SemiBold",
+      color: colors.textPrimary,
+    },
+    badge: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4 },
+    badgeText: { fontSize: FontSize.xs - 1, fontFamily: "Poppins_600SemiBold" },
+    timesRow: { flexDirection: "row", gap: 12, marginBottom: 14 },
+    timeBox: {
+      flex: 1,
+      backgroundColor: colors.background,
+      borderRadius: 12,
+      padding: 12,
+      alignItems: "center",
+    },
+    timeLabel: {
+      fontSize: FontSize.xs,
+      color: colors.textTertiary,
+      marginBottom: 4,
+    },
+    timeVal: {
+      fontSize: 26,
+      fontFamily: "Poppins_700Bold",
+      color: colors.textPrimary,
+    },
+    timeEmpty: { color: colors.textHint },
+    timeLupa: { color: colors.error, fontSize: FontSize.sm },
+    checkBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 10,
+      backgroundColor: colors.primary,
+      paddingVertical: 15,
+      borderRadius: 14,
+    },
+    checkBtnDisabled: {
+      backgroundColor: colors.textHint,
+      opacity: 0.75,
+    },
+    checkBtnMsg: {
+      textAlign: "center",
+      fontSize: FontSize.xs - 1,
+      color: colors.textTertiary,
+      fontFamily: "Poppins_400Regular",
+      marginTop: 7,
+    },
+    checkBtnText: {
+      color: "#fff",
+      fontSize: FontSize.md,
+      fontFamily: "Poppins_600SemiBold",
+    },
+    checkBtnSub: {
+      color: "rgba(255,255,255,0.8)",
+      fontSize: FontSize.xs - 2,
+      fontFamily: "Poppins_400Regular",
+    },
 
-  shiftCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 12,
-  },
-  shiftText: {
-    flex: 1,
-    fontSize: FontSize.xs,
-    color: colors.textSecondary,
-    fontFamily: "Poppins_400Regular",
-  },
+    shiftCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      backgroundColor: colors.white,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      marginBottom: 12,
+    },
+    shiftText: {
+      flex: 1,
+      fontSize: FontSize.xs,
+      color: colors.textSecondary,
+      fontFamily: "Poppins_400Regular",
+    },
 
+    sectionHeader: { marginBottom: 10 },
+    sectionTitle: {
+      fontSize: FontSize.md,
+      fontFamily: "Poppins_600SemiBold",
+      color: colors.textPrimary,
+    },
 
+    emptyBox: {
+      backgroundColor: colors.white,
+      borderRadius: 14,
+      padding: 28,
+      alignItems: "center",
+      gap: 10,
+    },
+    emptyText: {
+      fontSize: FontSize.sm,
+      color: colors.textTertiary,
+      fontFamily: "Poppins_400Regular",
+    },
 
-  sectionHeader: { marginBottom: 10 },
-  sectionTitle: {
-    fontSize: FontSize.md,
-    fontFamily: "Poppins_600SemiBold",
-    color: colors.textPrimary,
-  },
+    histItem: {
+      backgroundColor: colors.white,
+      borderRadius: 14,
+      padding: 12,
+      paddingHorizontal: 14,
+      flexDirection: "row",
+      gap: 10,
+      alignItems: "stretch",
+      marginBottom: 9,
+    },
+    dateBox: {
+      width: 44,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.primaryXLight,
+    },
+    dateDay: {
+      fontSize: 17,
+      fontFamily: "Poppins_700Bold",
+      lineHeight: 20,
+      color: colors.primary,
+    },
+    dateMonth: {
+      fontSize: 9,
+      textTransform: "uppercase",
+      fontFamily: "Poppins_500Medium",
+      color: colors.primary,
+    },
+    histCol: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 4,
+    },
+    histColDivider: {
+      width: 1,
+      alignSelf: "stretch",
+      backgroundColor: colors.border,
+    },
+    chip: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20 },
+    chipText: { fontSize: FontSize.xs - 2, fontFamily: "Poppins_500Medium" },
+    histJam: { fontSize: FontSize.md, fontFamily: "Poppins_700Bold" },
+    histJamEmpty: {
+      fontSize: FontSize.sm,
+      fontFamily: "Poppins_500Medium",
+      color: colors.textHint,
+    },
+    histJamEmptySmall: {
+      fontSize: FontSize.xs,
+      textAlign: "center",
+      lineHeight: 15,
+    },
+    lihatSemuaBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 4,
+      paddingVertical: 12,
+      marginBottom: 4,
+    },
+    lihatSemuaText: {
+      fontSize: FontSize.sm,
+      fontFamily: "Poppins_600SemiBold",
+      color: colors.primary,
+    },
 
-  emptyBox: {
-    backgroundColor: colors.white,
-    borderRadius: 14,
-    padding: 28,
-    alignItems: "center",
-    gap: 10,
-  },
-  emptyText: {
-    fontSize: FontSize.sm,
-    color: colors.textTertiary,
-    fontFamily: "Poppins_400Regular",
-  },
+    // Modal shared
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.5)",
+      justifyContent: "flex-end",
+    },
+    modalCard: {
+      backgroundColor: colors.white,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      paddingTop: 20,
+      paddingHorizontal: 20,
+      paddingBottom: 36,
+    },
+    modalTitle: {
+      fontSize: FontSize.lg,
+      fontFamily: "Poppins_700Bold",
+      color: colors.textPrimary,
+      textAlign: "center",
+    },
+    modalSub: {
+      fontSize: FontSize.xs,
+      fontFamily: "Poppins_400Regular",
+      color: colors.textTertiary,
+      textAlign: "center",
+      marginBottom: 14,
+    },
 
-  histItem: {
-    backgroundColor: colors.white,
-    borderRadius: 14,
-    padding: 12,
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    gap: 10,
-    alignItems: "stretch",
-    marginBottom: 9,
-  },
-  dateBox: {
-    width: 44,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.primaryXLight,
-  },
-  dateDay: { fontSize: 17, fontFamily: "Poppins_700Bold", lineHeight: 20, color: colors.primary },
-  dateMonth: {
-    fontSize: 9,
-    textTransform: "uppercase",
-    fontFamily: "Poppins_500Medium",
-    color: colors.primary,
-  },
-  histCol: { flex: 1, alignItems: "center", justifyContent: "center", gap: 4 },
-  histColDivider: { width: 1, alignSelf: "stretch", backgroundColor: colors.border },
-  chip: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20 },
-  chipText: { fontSize: FontSize.xs - 2, fontFamily: "Poppins_500Medium" },
-  histJam: { fontSize: FontSize.md, fontFamily: "Poppins_700Bold" },
-  histJamEmpty: {
-    fontSize: FontSize.sm,
-    fontFamily: "Poppins_500Medium",
-    color: colors.textHint,
-  },
-  histJamEmptySmall: {
-    fontSize: FontSize.xs,
-    textAlign: "center",
-    lineHeight: 15,
-  },
-  lihatSemuaBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-    paddingVertical: 12,
-    marginBottom: 4,
-  },
-  lihatSemuaText: {
-    fontSize: FontSize.sm,
-    fontFamily: "Poppins_600SemiBold",
-    color: colors.primary,
-  },
+    mapWrap: {
+      borderRadius: 16,
+      overflow: "hidden",
+      height: 220,
+      marginBottom: 12,
+      position: "relative",
+    },
+    map: { flex: 1 },
+    mapOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(255,255,255,0.75)",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 10,
+    },
+    mapOverlayText: {
+      fontSize: FontSize.sm,
+      fontFamily: "Poppins_500Medium",
+      color: colors.primary,
+    },
 
-  // Modal shared
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end",
-  },
-  modalCard: {
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingTop: 20,
-    paddingHorizontal: 20,
-    paddingBottom: 36,
-  },
-  modalTitle: {
-    fontSize: FontSize.lg,
-    fontFamily: "Poppins_700Bold",
-    color: colors.textPrimary,
-    textAlign: "center",
-  },
-  modalSub: {
-    fontSize: FontSize.xs,
-    fontFamily: "Poppins_400Regular",
-    color: colors.textTertiary,
-    textAlign: "center",
-    marginBottom: 14,
-  },
+    lokasiInfoBox: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      backgroundColor: colors.successLight,
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 12,
+    },
+    lokasiInfoWarning: { backgroundColor: colors.warningLight },
+    lokasiInfoTitle: {
+      fontSize: FontSize.sm,
+      fontFamily: "Poppins_600SemiBold",
+      color: colors.textPrimary,
+    },
+    lokasiInfoAddr: {
+      fontSize: FontSize.xs - 1,
+      color: colors.textSecondary,
+      fontFamily: "Poppins_400Regular",
+    },
 
-  mapWrap: {
-    borderRadius: 16,
-    overflow: "hidden",
-    height: 220,
-    marginBottom: 12,
-    position: "relative",
-  },
-  map: { flex: 1 },
-  mapOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255,255,255,0.75)",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-  },
-  mapOverlayText: {
-    fontSize: FontSize.sm,
-    fontFamily: "Poppins_500Medium",
-    color: colors.primary,
-  },
+    // Kamera full-screen
+    kameraRoot: { flex: 1, backgroundColor: "#000" },
+    kameraFill: { ...StyleSheet.absoluteFillObject },
+    kameraHeader: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      paddingTop: 56,
+      paddingHorizontal: 20,
+      paddingBottom: 20,
+      backgroundColor: "rgba(0,0,0,0.45)",
+      alignItems: "center",
+    },
+    kameraJudul: {
+      color: "#fff",
+      fontSize: FontSize.md,
+      fontFamily: "Poppins_700Bold",
+    },
+    kameraSubJudul: {
+      color: "rgba(255,255,255,0.75)",
+      fontSize: FontSize.xs,
+      fontFamily: "Poppins_400Regular",
+      marginTop: 2,
+    },
+    kameraBottom: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      paddingBottom: 48,
+      paddingHorizontal: 24,
+      paddingTop: 20,
+      backgroundColor: "rgba(0,0,0,0.45)",
+      alignItems: "center",
+      gap: 12,
+    },
+    shutterBtn: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      borderWidth: 4,
+      borderColor: "#fff",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    shutterInner: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: "#fff",
+    },
+    kameraAksiBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      backgroundColor: "rgba(255,255,255,0.25)",
+      paddingVertical: 13,
+      paddingHorizontal: 20,
+      borderRadius: 12,
+      width: "100%",
+    },
+    kameraAksiBtnPrimary: { backgroundColor: colors.primary },
+    kameraAksiBtnText: {
+      color: "#fff",
+      fontSize: FontSize.sm,
+      fontFamily: "Poppins_600SemiBold",
+    },
+    kameraBackBtn: {
+      position: "absolute",
+      top: 52,
+      left: 16,
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: "rgba(0,0,0,0.4)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    kameraPermWrap: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 16,
+      paddingHorizontal: 32,
+    },
+    kameraPermText: {
+      color: "rgba(255,255,255,0.75)",
+      fontSize: FontSize.sm,
+      fontFamily: "Poppins_400Regular",
+      textAlign: "center",
+    },
+    kameraPermBtn: {
+      backgroundColor: colors.primary,
+      paddingVertical: 12,
+      paddingHorizontal: 24,
+      borderRadius: 12,
+      marginTop: 8,
+    },
+    kameraPermBtnText: {
+      color: "#fff",
+      fontSize: FontSize.sm,
+      fontFamily: "Poppins_600SemiBold",
+    },
 
-  lokasiInfoBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: colors.successLight,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-  },
-  lokasiInfoWarning: { backgroundColor: colors.warningLight },
-  lokasiInfoTitle: {
-    fontSize: FontSize.sm,
-    fontFamily: "Poppins_600SemiBold",
-    color: colors.textPrimary,
-  },
-  lokasiInfoAddr: {
-    fontSize: FontSize.xs - 1,
-    color: colors.textSecondary,
-    fontFamily: "Poppins_400Regular",
-  },
-
-  // Kamera full-screen
-  kameraRoot: { flex: 1, backgroundColor: '#000' },
-  kameraFill: { ...StyleSheet.absoluteFillObject },
-  kameraHeader: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0,
-    paddingTop: 56,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    alignItems: 'center',
-  },
-  kameraJudul: {
-    color: '#fff',
-    fontSize: FontSize.md,
-    fontFamily: 'Poppins_700Bold',
-  },
-  kameraSubJudul: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: FontSize.xs,
-    fontFamily: 'Poppins_400Regular',
-    marginTop: 2,
-  },
-  kameraBottom: {
-    position: 'absolute',
-    bottom: 0, left: 0, right: 0,
-    paddingBottom: 48,
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    alignItems: 'center',
-    gap: 12,
-  },
-  shutterBtn: {
-    width: 72, height: 72,
-    borderRadius: 36,
-    borderWidth: 4,
-    borderColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  shutterInner: {
-    width: 56, height: 56,
-    borderRadius: 28,
-    backgroundColor: '#fff',
-  },
-  kameraAksiBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    paddingVertical: 13,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    width: '100%',
-  },
-  kameraAksiBtnPrimary: { backgroundColor: colors.primary },
-  kameraAksiBtnText: {
-    color: '#fff',
-    fontSize: FontSize.sm,
-    fontFamily: 'Poppins_600SemiBold',
-  },
-  kameraBackBtn: {
-    position: 'absolute',
-    top: 52, left: 16,
-    width: 38, height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  kameraPermWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-    paddingHorizontal: 32,
-  },
-  kameraPermText: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: FontSize.sm,
-    fontFamily: 'Poppins_400Regular',
-    textAlign: 'center',
-  },
-  kameraPermBtn: {
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  kameraPermBtnText: {
-    color: '#fff',
-    fontSize: FontSize.sm,
-    fontFamily: 'Poppins_600SemiBold',
-  },
-
-  modalActions: { gap: 8 },
-  konfirmasiBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: colors.primary,
-    borderRadius: 14,
-    paddingVertical: 15,
-  },
-  konfirmBtnText: {
-    color: "#fff",
-    fontSize: FontSize.md,
-    fontFamily: "Poppins_600SemiBold",
-  },
-  batalBtn: { paddingVertical: 12, alignItems: "center" },
-  batalBtnText: {
-    fontSize: FontSize.md,
-    fontFamily: "Poppins_500Medium",
-    color: colors.textTertiary,
-  },
-  pullLoadingWrap: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0,
-    height: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-  },
-  sumStrip: { flexDirection: "row", gap: 8, marginBottom: 14 },
-  sumItem: {
-    flex: 1,
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 10,
-    alignItems: "center",
-  },
-  sumNum: { fontSize: FontSize.xl, fontFamily: "Poppins_700Bold" },
-  sumLabel: {
-    fontSize: FontSize.xs - 2,
-    color: colors.textTertiary,
-    marginTop: 1,
-    fontFamily: "Poppins_400Regular",
-  },
-});
+    modalActions: { gap: 8 },
+    konfirmasiBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      backgroundColor: colors.primary,
+      borderRadius: 14,
+      paddingVertical: 15,
+    },
+    konfirmBtnText: {
+      color: "#fff",
+      fontSize: FontSize.md,
+      fontFamily: "Poppins_600SemiBold",
+    },
+    batalBtn: { paddingVertical: 12, alignItems: "center" },
+    batalBtnText: {
+      fontSize: FontSize.md,
+      fontFamily: "Poppins_500Medium",
+      color: colors.textTertiary,
+    },
+    pullLoadingWrap: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 60,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: colors.background,
+    },
+    sumStrip: { flexDirection: "row", gap: 8, marginBottom: 14 },
+    sumItem: {
+      flex: 1,
+      backgroundColor: colors.white,
+      borderRadius: 12,
+      padding: 10,
+      alignItems: "center",
+    },
+    sumNum: { fontSize: FontSize.xl, fontFamily: "Poppins_700Bold" },
+    sumLabel: {
+      fontSize: FontSize.xs - 2,
+      color: colors.textTertiary,
+      marginTop: 1,
+      fontFamily: "Poppins_400Regular",
+    },
+  });
