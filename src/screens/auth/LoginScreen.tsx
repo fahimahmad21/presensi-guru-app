@@ -4,6 +4,7 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform,
   ScrollView, ActivityIndicator, Image,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
@@ -98,10 +99,10 @@ export default function LoginScreen({ navigation }: Props) {
           <Text style={styles.label}>USERNAME / EMAIL / NO. HP</Text>
           <View style={styles.inputGroup}>
             <View style={styles.inputWrap}>
-              <Text style={styles.inputIcon}>👤</Text>
+              <Ionicons name="person" size={16} color="#9E9E9E" style={{ marginRight: 10 }} />
               <TextInput
                 style={styles.input}
-                placeholder="Email atau nomor HP"
+                placeholder="Username atau Email"
                 placeholderTextColor={colors.textHint}
                 value={username}
                 onChangeText={t => { setUsername(t); setShowAkunDropdown(false); }}
@@ -135,7 +136,7 @@ export default function LoginScreen({ navigation }: Props) {
 
           <Text style={styles.label}>KATA SANDI</Text>
           <View style={styles.inputWrap}>
-            <Text style={styles.inputIcon}>🔒</Text>
+            <Ionicons name="lock-closed" size={16} color="#9E9E9E" style={{ marginRight: 10 }} />
             <TextInput
               ref={passwordRef}
               style={[styles.input, { flex: 1 }]}
@@ -146,7 +147,7 @@ export default function LoginScreen({ navigation }: Props) {
               secureTextEntry={!showPass}
             />
             <TouchableOpacity onPress={() => setShowPass(v => !v)} style={styles.eyeBtn}>
-              <Text style={styles.eyeIcon}>{showPass ? '🙈' : '👁️'}</Text>
+              <Ionicons name={showPass ? 'eye' : 'eye-off'} size={18} color="#9E9E9E" />
             </TouchableOpacity>
           </View>
 
@@ -163,7 +164,7 @@ export default function LoginScreen({ navigation }: Props) {
             </LinearGradient>
           </TouchableOpacity>
 
-          <Text style={styles.footer}>v1.0.0 · <Text style={styles.footerBrand}>SD Bintang Juara</Text> · 2025</Text>
+          <Text style={styles.footer}>v1.0.0 · <Text style={styles.footerBrand}>SD Islam Bintang Juara</Text> · 2026</Text>
         </View>
       </ScrollView>
 
@@ -193,10 +194,8 @@ const getStyles = (colors: ColorPalette) => StyleSheet.create({
 
   label: { fontSize: 11, fontFamily: 'Poppins_600SemiBold', color: colors.textSecondary, letterSpacing: 0.5, marginBottom: 8, marginTop: 4 },
   inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, borderRadius: Radius.md, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, marginBottom: 14, height: 52 },
-  inputIcon: { fontSize: 16, marginRight: 10 },
   input: { flex: 1, fontSize: FontSize.md, fontFamily: 'Poppins_400Regular', color: colors.textPrimary },
   eyeBtn: { padding: 4 },
-  eyeIcon: { fontSize: 16 },
 
   inputGroup: { position: 'relative', zIndex: 10 },
   akunDropdown: {
