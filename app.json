@@ -16,6 +16,7 @@
         "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#1565C0"
       },
+      "googleMapsApiKey": "AIzaSyCDx_WAwWZLyFIvVUnSZiq-H1trCWA2KQY",
       "package": "id.bintangjuara.presensi",
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [
