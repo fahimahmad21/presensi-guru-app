@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { saveAuthTokens, clearAuthTokens, hasAuthTokens } from '../services/apiClient';
 import { login as apiLogin, getProfile, updateAvatar as apiUpdateAvatar } from '../services/authService';
 import { saveAccount, SavedAccount } from '../services/accountService';
+import { subscribeFCM, unsubscribeFCM } from '../services/fcmService';
 
 export interface UserProfile {
   country:  number;
@@ -86,6 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     setIsLoggedIn(true);
+    subscribeFCM().catch(() => {});
   };
 
   // Login cepat memakai token akun tersimpan (tanpa password)
@@ -96,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!profile.data.status) throw new Error('Sesi berakhir');
       setUser(profile.data.data);
       setIsLoggedIn(true);
+      subscribeFCM().catch(() => {});
       // Perbarui nama di riwayat login jika sudah berubah di backend
       const freshName = profile.data.data?.name;
       if (freshName && freshName !== account.name) {
@@ -108,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    await unsubscribeFCM().catch(() => {});
     await clearAuthTokens();
     await AsyncStorage.multiRemove(['@ws_notifs_v1', '@notif_badge_v1', '@notif_read_v1']);
     setUser(null);
