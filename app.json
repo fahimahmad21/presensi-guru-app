@@ -28,7 +28,11 @@
         "android.permission.VIBRATE",
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
       ]
     },
     "plugins": [
@@ -56,6 +60,12 @@
         "expo-local-authentication",
         {
           "faceIDPermission": "Izin autentikasi diperlukan untuk verifikasi identitas."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Izin galeri diperlukan untuk memilih foto lampiran."
         }
       ],
       "expo-font",
