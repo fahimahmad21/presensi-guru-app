@@ -16,9 +16,9 @@ import {
 } from "react-native-gesture-handler";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { WebView } from "react-native-webview";
 import { useNavigation } from "@react-navigation/native";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
-import MapView, { Marker, Circle, PROVIDER_DEFAULT } from "react-native-maps";
 import * as Location from "expo-location";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { DeviceEventEmitter } from "react-native";
@@ -42,6 +42,31 @@ import { FontSize, Shadow } from "../../constants/Theme";
 import AppHeader from "../../components/AppHeader";
 import AlertModal from "../../components/AlertModal";
 import HeaderActions from "../../components/HeaderActions";
+
+function buildMapHtml(
+  schoolLat: number, schoolLng: number, radius: number,
+  userLat?: number, userLng?: number,
+): string {
+  const userScript = (userLat !== undefined && userLng !== undefined)
+    ? `L.circleMarker([${userLat},${userLng}],{radius:9,color:'#fff',weight:2,fillColor:'#E53935',fillOpacity:1}).addTo(map);
+       map.fitBounds([[${schoolLat},${schoolLng}],[${userLat},${userLng}]],{padding:[60,60]});`
+    : `map.setView([${schoolLat},${schoolLng}],16);`;
+
+  return `<!DOCTYPE html><html><head>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>*{margin:0;padding:0}html,body,#map{width:100%;height:100%;overflow:hidden}</style>
+</head><body><div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+var map=L.map('map',{zoomControl:false,attributionControl:false});
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+var si=L.divIcon({html:'<div style="width:14px;height:14px;border-radius:50%;background:#1565C0;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>',className:'',iconSize:[14,14],iconAnchor:[7,7]});
+L.marker([${schoolLat},${schoolLng}],{icon:si}).addTo(map);
+L.circle([${schoolLat},${schoolLng}],{radius:${radius},color:'#1565C0',weight:2,fillColor:'#1565C0',fillOpacity:.15}).addTo(map);
+${userScript}
+</script></body></html>`;
+}
 
 function hitungJarak(lat1: number, lng1: number, lat2: number, lng2: number) {
   const R = 6371000;
@@ -181,7 +206,6 @@ export default function AbsensiScreen() {
     msg: string;
   }>({ visible: false, type: "success", title: "", msg: "" });
 
-  const mapRef = useRef<MapView>(null);
   const cameraRef = useRef<CameraView>(null);
   const [camPermission, requestCamPermission] = useCameraPermissions();
 
@@ -342,13 +366,6 @@ export default function AbsensiScreen() {
   const lupaPulang =
     !checkOutTime && isPastDeadline(checkStatus?.presence.endfinish);
 
-  const mapInitial = {
-    latitude: userCoords?.lat ?? (sekolahLat || -7.022846),
-    longitude: userCoords?.lng ?? (sekolahLng || 110.387202),
-    latitudeDelta: 0.008,
-    longitudeDelta: 0.008,
-  };
-
   // Warna gradasi yang dipakai di header — reuse untuk hero supaya konsisten
   const headerColors = ["#0D47A1", "#1565C0", "#42A5F5"] as const;
 
@@ -372,18 +389,6 @@ export default function AbsensiScreen() {
       }
       setUserCoords({ lat, lng, jarak });
       setLokasiStatus(jarak <= sekolahRadius ? "found" : "out_range");
-      setTimeout(() => {
-        mapRef.current?.fitToCoordinates(
-          [
-            { latitude: lat, longitude: lng },
-            { latitude: sekolahLat, longitude: sekolahLng },
-          ],
-          {
-            edgePadding: { top: 60, bottom: 60, left: 40, right: 40 },
-            animated: true,
-          },
-        );
-      }, 300);
     } catch {
       setLokasiStatus("error");
     }
@@ -888,65 +893,36 @@ export default function AbsensiScreen() {
             </Text>
 
             <View style={styles.mapWrap}>
-              <MapView
-                ref={mapRef}
-                provider={PROVIDER_DEFAULT}
-                style={styles.map}
-                initialRegion={mapInitial}
-                showsUserLocation
-                showsMyLocationButton={false}
-              >
-                {sekolahLat !== 0 && (
-                  <>
-                    <Marker
-                      coordinate={{
-                        latitude: sekolahLat,
-                        longitude: sekolahLng,
-                      }}
-                      title={sekolahNama}
-                      pinColor={colors.primary}
-                    />
-                    <Circle
-                      center={{ latitude: sekolahLat, longitude: sekolahLng }}
-                      radius={sekolahRadius}
-                      strokeColor={colors.primary}
-                      strokeWidth={2}
-                      fillColor="rgba(21,101,192,0.12)"
-                    />
-                  </>
-                )}
-                {userCoords && lokasiStatus !== "loading" && (
-                  <Marker
-                    coordinate={{
-                      latitude: userCoords.lat,
-                      longitude: userCoords.lng,
-                    }}
-                    title="Lokasi Saya"
-                    pinColor="#E53935"
-                  />
-                )}
-              </MapView>
+              {sekolahLat !== 0 && (
+                <WebView
+                  key={userCoords ? `${userCoords.lat}-${userCoords.lng}` : "init"}
+                  source={{ html: buildMapHtml(sekolahLat, sekolahLng, sekolahRadius, userCoords?.lat, userCoords?.lng) }}
+                  style={{ flex: 1 }}
+                  originWhitelist={["*"]}
+                  scrollEnabled={false}
+                />
+              )}
               {lokasiStatus === "loading" && (
                 <View style={styles.mapOverlay}>
                   <ActivityIndicator size="large" color={colors.primary} />
-                  <Text style={styles.mapOverlayText}>
-                    Mendeteksi lokasi...
-                  </Text>
+                  <Text style={styles.mapOverlayText}>Mendeteksi lokasi GPS...</Text>
+                </View>
+              )}
+              {lokasiStatus === "error" && (
+                <View style={[styles.mapOverlay, { backgroundColor: colors.background }]}>
+                  <Ionicons name="location-outline" size={36} color={colors.textHint} />
+                  <Text style={styles.mapOverlayText}>Gagal mendapatkan lokasi</Text>
                 </View>
               )}
             </View>
 
             {lokasiStatus === "found" && userCoords && (
               <View style={styles.lokasiInfoBox}>
-                <Ionicons
-                  name="checkmark-circle"
-                  size={20}
-                  color={colors.success}
-                />
+                <Ionicons name="checkmark-circle" size={20} color={colors.success} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.lokasiInfoTitle}>{sekolahNama}</Text>
                   <Text style={styles.lokasiInfoAddr}>
-                    Jarak: {userCoords.jarak} m · Radius: {sekolahRadius} m
+                    Jarak: {userCoords.jarak}m · Radius: {sekolahRadius}m
                   </Text>
                 </View>
               </View>
@@ -954,25 +930,15 @@ export default function AbsensiScreen() {
             {lokasiStatus === "out_range" && userCoords && (
               <View style={[styles.lokasiInfoBox, styles.lokasiInfoWarning]}>
                 <Ionicons name="warning" size={20} color={colors.warning} />
-                <Text
-                  style={[
-                    styles.lokasiInfoTitle,
-                    { color: colors.warning, flex: 1 },
-                  ]}
-                >
-                  Di luar area sekolah ({userCoords.jarak} m)
+                <Text style={[styles.lokasiInfoTitle, { color: colors.warning, flex: 1 }]}>
+                  Di luar area sekolah ({userCoords.jarak}m)
                 </Text>
               </View>
             )}
             {lokasiStatus === "error" && (
               <View style={[styles.lokasiInfoBox, styles.lokasiInfoWarning]}>
                 <Ionicons name="close-circle" size={20} color={colors.error} />
-                <Text
-                  style={[
-                    styles.lokasiInfoTitle,
-                    { color: colors.error, flex: 1 },
-                  ]}
-                >
+                <Text style={[styles.lokasiInfoTitle, { color: colors.error, flex: 1 }]}>
                   Gagal mendapatkan lokasi
                 </Text>
               </View>
@@ -1384,10 +1350,9 @@ const getStyles = (colors: ColorPalette) =>
       marginBottom: 12,
       position: "relative",
     },
-    map: { flex: 1 },
     mapOverlay: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: "rgba(255,255,255,0.75)",
+      backgroundColor: "rgba(255,255,255,0.85)",
       alignItems: "center",
       justifyContent: "center",
       gap: 10,
@@ -1397,7 +1362,6 @@ const getStyles = (colors: ColorPalette) =>
       fontFamily: "Poppins_500Medium",
       color: colors.primary,
     },
-
     lokasiInfoBox: {
       flexDirection: "row",
       alignItems: "center",
