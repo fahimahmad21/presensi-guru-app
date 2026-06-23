@@ -49,22 +49,53 @@ export async function testNotifikasi() {
   });
 }
 
-// Jadwalkan reminder harian — cancel semua dulu agar tidak duplikat
+// Jadwalkan reminder harian — ambil jadwal dari API, cancel hanya tipe reminder
 export async function jadwalkanReminderHarian() {
   if (isExpoGo) return;
 
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  // Cancel hanya notifikasi reminder (bukan semua), supaya reminder pulang
+  // yang sudah terjadwal hari ini tidak terhapus saat app dibuka ulang
+  const jadwal = await Notifications.getAllScheduledNotificationsAsync();
+  for (const n of jadwal) {
+    const tipe = (n.content.data as Record<string, unknown>)?.tipe;
+    if (tipe === 'reminder_absen' || tipe === 'reminder_pulang') {
+      await Notifications.cancelScheduledNotificationAsync(n.identifier);
+    }
+  }
+
+  // Ambil jadwal presensi dari API, fallback ke default jika gagal
+  let jamMasuk   = { hour: 6, minute: 30 };
+  let deadlineMasuk = '07:30';
+  let jamPulang  = { hour: 15, minute: 0 };
+
+  try {
+    const res = await getAbsentCheck();
+    if (res.data.status) {
+      const presence = res.data.data.presence;
+      if (presence.onstart) {
+        const [h, m] = presence.onstart.split(':').map(Number);
+        jamMasuk = { hour: h, minute: m };
+      }
+      if (presence.ofstart) {
+        deadlineMasuk = presence.ofstart.substring(0, 5);
+      }
+      if (presence.offinish) {
+        const [h, m] = presence.offinish.split(':').map(Number);
+        jamPulang = { hour: h, minute: m };
+      }
+    }
+  } catch {}
 
   await Notifications.scheduleNotificationAsync({
     content: {
       title: 'Belum Absen Hari Ini',
-      body:  'Jangan lupa melakukan presensi masuk sebelum jam 07:30.',
+      body:  `Jangan lupa melakukan presensi masuk sebelum jam ${deadlineMasuk}.`,
       data:  { tipe: 'reminder_absen' },
     },
     trigger: {
-      type:    Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour:    6,
-      minute:  30,
+      type:   Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour:   jamMasuk.hour,
+      minute: jamMasuk.minute,
     },
   });
 
@@ -75,9 +106,9 @@ export async function jadwalkanReminderHarian() {
       data:  { tipe: 'reminder_pulang' },
     },
     trigger: {
-      type:    Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour:    15,
-      minute:  0,
+      type:   Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour:   jamPulang.hour,
+      minute: jamPulang.minute,
     },
   });
 }
