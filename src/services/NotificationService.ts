@@ -79,8 +79,8 @@ export async function jadwalkanReminderHarian() {
       if (presence.ofstart) {
         deadlineMasuk = presence.ofstart.substring(0, 5);
       }
-      if (presence.offinish) {
-        const [h, m] = presence.offinish.split(':').map(Number);
+      if (presence.onfinish) {
+        const [h, m] = presence.onfinish.split(':').map(Number);
         jamPulang = { hour: h, minute: m };
       }
     }
