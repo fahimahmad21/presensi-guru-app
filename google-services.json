@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "558836564443",
+    "firebase_url": "https://mangospot-net.firebaseio.com",
+    "project_id": "mangospot-net",
+    "storage_bucket": "mangospot-net.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:558836564443:android:e5b5bbf9f5d8d7312f27fe",
+        "android_client_info": {
+          "package_name": "com.bintangjuara.presensi"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "558836564443-o05j049rp4ela9fermckuullegikkr0j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDC8wDUWLNKXBu6coZV2EVNGr-mCpb34j4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "558836564443-l32fv2o8vcbh6ej0vv1ch68b5quju2eq.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

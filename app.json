@@ -17,7 +17,8 @@
         "backgroundColor": "#1565C0"
       },
       "googleMapsApiKey": "AIzaSyCDx_WAwWZLyFIvVUnSZiq-H1trCWA2KQY",
-      "package": "id.bintangjuara.presensi",
+      "googleServicesFile": "./google-services.json",
+      "package": "com.bintangjuara.presensi",
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",

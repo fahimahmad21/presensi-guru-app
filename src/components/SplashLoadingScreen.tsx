@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 const { width: W, height: H } = Dimensions.get('window');
 const BAR_W   = W * 0.58;
 const SHIMMER = BAR_W * 0.42;
-const MIN_MS  = 1500; // minimum tampil sebelum exit
+const MIN_MS  = 2000; // minimum tampil sebelum exit
 const EXIT_MS = 400;  // durasi fade-out keluar
 
 interface Props {
