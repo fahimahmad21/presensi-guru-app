@@ -226,8 +226,6 @@ export default function IzinScreen() {
     const sub = DeviceEventEmitter.addListener('ws:permit', (msg: Record<string, unknown>) => {
       const id     = String(msg.id ?? '');
       const status = String(msg.status ?? '').toLowerCase();
-      console.log('[IzinScreen] ws:permit id:', id, 'status:', status);
-
       if (status === 'delete') {
         setHistory(prev => prev.filter(h => h.id !== id));
       } else {
@@ -235,13 +233,8 @@ export default function IzinScreen() {
                         : status.startsWith('reject')  ? 'Reject'  as const
                         : status.startsWith('wait') || status === 'pending' ? 'Waiting' as const
                         : null;
-        console.log('[IzinScreen] newAction:', newAction);
         if (!newAction) return;
-        setHistory(prev => {
-          const matched = prev.some(h => h.id === id);
-          console.log('[IzinScreen] update action', id, '→', newAction, 'matched:', matched);
-          return prev.map(h => h.id === id ? { ...h, action: newAction } : h);
-        });
+        setHistory(prev => prev.map(h => h.id === id ? { ...h, action: newAction } : h));
       }
     });
     return () => sub.remove();

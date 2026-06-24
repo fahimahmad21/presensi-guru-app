@@ -72,7 +72,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!res.data.status) throw new Error(res.data.message);
 
     const { 'Auth-Api': api, 'Auth-Key': key, 'Auth-Token': token, 'Auth-Socket': socket, name } = res.data.data;
-    console.log('[Auth-Socket]', socket);
     await saveAuthTokens(api, key, token, socket);
 
     // Ambil data profil lengkap termasuk foto — gunakan name dari profil agar selalu sinkron

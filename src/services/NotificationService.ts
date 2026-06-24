@@ -36,19 +36,6 @@ export async function mintaIzinNotifikasi(): Promise<boolean> {
   return status === 'granted';
 }
 
-// TEST ONLY — hapus setelah selesai testing notifikasi
-export async function testNotifikasi() {
-  if (isExpoGo) return;
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: 'Test Notifikasi ✅',
-      body:  'Sistem notifikasi berjalan dengan baik.',
-      data:  { tipe: 'test' },
-    },
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 10 },
-  });
-}
-
 // Jadwalkan reminder harian — ambil jadwal dari API, cancel hanya tipe reminder
 export async function jadwalkanReminderHarian() {
   if (isExpoGo) return;

@@ -43,7 +43,6 @@ export default function App() {
     if (fontsLoaded) await SplashScreen.hideAsync();
   }, [fontsLoaded]);
 
-  // Minta izin notifikasi + jadwalkan reminder saat app pertama kali dibuka
   useEffect(() => {
     (async () => {
       const izin = await mintaIzinNotifikasi();
@@ -52,11 +51,9 @@ export default function App() {
       }
     })();
 
-    // Tangani ketika user klik notifikasi saat app closed/background
     const sub = Notifications.addNotificationResponseReceivedListener(response => {
       const data = response.notification.request.content.data as Record<string, unknown>;
       console.log('[Notif klik]', data?.tipe);
-      // TODO: navigasi ke screen yang relevan berdasarkan data.tipe
     });
 
     return () => sub.remove();

@@ -36,6 +36,8 @@
       ]
     },
     "plugins": [
+      "./plugins/withArmOnly",
+      "./plugins/withShrinkResources",
       [
         "expo-notifications",
         {

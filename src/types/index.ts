@@ -54,6 +54,7 @@ export interface AbsentInfo {
     icon: string; // Base64
     logo: string; // Base64
   };
+  location: string | null; // "true" = aktif, null = nonaktif
   data: {
     name:   string;
     input:  string; // "07:10:00"

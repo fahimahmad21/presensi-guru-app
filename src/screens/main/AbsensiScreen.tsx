@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   Image,
   Animated,
+  NativeModules,
+  DeviceEventEmitter,
 } from "react-native";
 import {
   ScrollView,
@@ -21,9 +23,6 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import * as Location from "expo-location";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import Constants from "expo-constants";
-import DeviceInfo from "react-native-device-info";
-import { DeviceEventEmitter } from "react-native";
 import { useAuth } from "../../context/AuthContext";
 import {
   AbsentInfo,
@@ -44,6 +43,7 @@ import { FontSize, Shadow } from "../../constants/Theme";
 import AppHeader from "../../components/AppHeader";
 import AlertModal from "../../components/AlertModal";
 import HeaderActions from "../../components/HeaderActions";
+import { LEAFLET_JS, LEAFLET_CSS } from "../../constants/leaflet";
 
 function buildMapHtml(
   schoolLat: number, schoolLng: number, radius: number,
@@ -56,10 +56,10 @@ function buildMapHtml(
 
   return `<!DOCTYPE html><html><head>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>${LEAFLET_CSS}</style>
 <style>*{margin:0;padding:0}html,body,#map{width:100%;height:100%;overflow:hidden}</style>
 </head><body><div id="map"></div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>${LEAFLET_JS}</script>
 <script>
 var map=L.map('map',{zoomControl:false,attributionControl:false});
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
@@ -157,7 +157,7 @@ function getStatusCfg(colors: ColorPalette) {
 
 type LokasiStatus = "loading" | "found" | "out_range" | "error";
 
-const isExpoGo = Constants.executionEnvironment === 'storeClient';
+const hasDeviceInfoNative = !!NativeModules.RNDeviceInfo;
 
 export default function AbsensiScreen() {
   const { user } = useAuth();
@@ -338,7 +338,7 @@ export default function AbsensiScreen() {
   const checkOutTime = todayOUT ? formatJam(todayOUT.date) : null;
   const aksiAbsen = checkStatus?.absent.type === "OUT" ? "keluar" : "masuk";
 
-  const lokasiAktif = checkStatus?.location?.status === true;
+  const lokasiAktif = absentInfo?.location === "true";
   const sudahAbsen  = checkStatus?.double.status === false;
   const btnDisabled = !lokasiAktif || sudahAbsen;
   const btnDisabledMsg = !lokasiAktif
@@ -377,8 +377,10 @@ export default function AbsensiScreen() {
 
   // ── MODAL LOKASI ──────────────────────────────────────────────────────────
   const bukaModalLokasi = async () => {
-    if (!isExpoGo) {
+    if (hasDeviceInfoNative) {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const DeviceInfo = require('react-native-device-info').default;
         const isMock = await DeviceInfo.isMockLocationEnabled();
         if (isMock) {
           setAlert({
@@ -406,6 +408,16 @@ export default function AbsensiScreen() {
         const loc = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.High,
         });
+        if (loc.mocked) {
+          setShowLokasi(false);
+          setAlert({
+            visible: true,
+            type: "error",
+            title: "GPS Tidak Valid",
+            msg: "Terdeteksi penggunaan GPS palsu. Nonaktifkan aplikasi fake GPS dan coba lagi.",
+          });
+          return;
+        }
         lat = loc.coords.latitude;
         lng = loc.coords.longitude;
         jarak = Math.round(hitungJarak(lat, lng, sekolahLat, sekolahLng));

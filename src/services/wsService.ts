@@ -63,7 +63,6 @@ async function showNotif(title: string, body: string) {
 // ─── Handler pesan ws/permit ──────────────────────────────────────────────────
 
 async function handlePermitMessage(raw: string) {
-  console.log('[WS/permit] event:', raw);
   try {
     const msg = JSON.parse(raw) as Record<string, unknown>;
 
@@ -72,11 +71,10 @@ async function handlePermitMessage(raw: string) {
     if ('permit' in msg && 'id' in msg) {
       const status  = msg.status as string;
       const msgKey  = `permit_${msg.id}_${status}`;
-      if (g.recentMsgKeys.has(msgKey)) { console.log('[WS/permit] dup skipped:', msgKey); return; }
+      if (g.recentMsgKeys.has(msgKey)) { return; }
       g.recentMsgKeys.add(msgKey);
       setTimeout(() => g.recentMsgKeys.delete(msgKey), 3000);
 
-      console.log('[WS/permit] Permit update id:', msg.id, 'status:', status);
       DeviceEventEmitter.emit('ws:permit', msg);
 
       const statusLower = status.toLowerCase();
@@ -110,9 +108,8 @@ async function handlePermitMessage(raw: string) {
       return;
     }
 
-    console.log('[WS/permit] unhandled message:', msg);
   } catch {
-    console.log('[WS/permit] non-JSON message:', raw);
+    // pesan non-JSON dari server, abaikan
   }
 }
 
@@ -122,7 +119,6 @@ async function handlePermitMessage(raw: string) {
 const BULAN_PENDEK = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 
 async function handleAbsentMessage(raw: string) {
-  console.log('[WS/absent] event:', raw);
   try {
     const msg = JSON.parse(raw) as Record<string, unknown>;
 
@@ -130,7 +126,7 @@ async function handleAbsentMessage(raw: string) {
 
     const statusLower = String(msg.status ?? '').toLowerCase();
     const msgKey      = `absent_${msg.id}_${statusLower}`;
-    if (g.recentMsgKeys.has(msgKey)) { console.log('[WS/absent] dup skipped:', msgKey); return; }
+    if (g.recentMsgKeys.has(msgKey)) { return; }
     g.recentMsgKeys.add(msgKey);
     setTimeout(() => g.recentMsgKeys.delete(msgKey), 3000);
 
@@ -168,7 +164,7 @@ async function handleAbsentMessage(raw: string) {
     }
 
   } catch {
-    console.log('[WS/absent] non-JSON message:', raw);
+    // pesan non-JSON dari server, abaikan
   }
 }
 
