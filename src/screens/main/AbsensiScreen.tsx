@@ -21,6 +21,8 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import * as Location from "expo-location";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import Constants from "expo-constants";
+import DeviceInfo from "react-native-device-info";
 import { DeviceEventEmitter } from "react-native";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -154,6 +156,8 @@ function getStatusCfg(colors: ColorPalette) {
 }
 
 type LokasiStatus = "loading" | "found" | "out_range" | "error";
+
+const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
 export default function AbsensiScreen() {
   const { user } = useAuth();
@@ -373,6 +377,23 @@ export default function AbsensiScreen() {
 
   // ── MODAL LOKASI ──────────────────────────────────────────────────────────
   const bukaModalLokasi = async () => {
+    if (!isExpoGo) {
+      try {
+        const isMock = await DeviceInfo.isMockLocationEnabled();
+        if (isMock) {
+          setAlert({
+            visible: true,
+            type: "error",
+            title: "GPS Tidak Valid",
+            msg: "Terdeteksi penggunaan GPS palsu. Nonaktifkan aplikasi fake GPS dan matikan mock location di developer options untuk melanjutkan absensi.",
+          });
+          return;
+        }
+      } catch {
+        // Kalau deteksi gagal, tetap lanjut agar tidak memblokir user asli
+      }
+    }
+
     setLokasiStatus("loading");
     setUserCoords(null);
     setShowLokasi(true);
