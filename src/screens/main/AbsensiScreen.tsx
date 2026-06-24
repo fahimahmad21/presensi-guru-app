@@ -334,7 +334,7 @@ export default function AbsensiScreen() {
   const checkOutTime = todayOUT ? formatJam(todayOUT.date) : null;
   const aksiAbsen = checkStatus?.absent.type === "OUT" ? "keluar" : "masuk";
 
-  const lokasiAktif = checkStatus?.location.status === true;
+  const lokasiAktif = checkStatus?.location?.status === true;
   const sudahAbsen  = checkStatus?.double.status === false;
   const btnDisabled = !lokasiAktif || sudahAbsen;
   const btnDisabledMsg = !lokasiAktif
