@@ -17,7 +17,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { WebView } from "react-native-webview";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import * as Location from "expo-location";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -298,9 +298,11 @@ export default function AbsensiScreen() {
     [doRefresh],
   );
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   useEffect(() => {
     getAllAbsentHistory()
