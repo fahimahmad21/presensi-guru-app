@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Feature Graphic - Presensi Guru</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1024px; height: 500px; overflow: hidden; }
+  body { font-family: 'Poppins', 'Segoe UI', Arial, sans-serif; }
+
+  .canvas {
+    position: relative;
+    width: 1024px;
+    height: 500px;
+    background: linear-gradient(135deg, #1565C0 0%, #0D47A1 100%);
+    overflow: hidden;
+  }
+
+  .deco {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .deco-1 { width: 220px; height: 220px; top: -80px; right: 120px; }
+  .deco-2 { width: 140px; height: 140px; bottom: -50px; right: 60px; background: rgba(255,255,255,0.06); }
+  .deco-3 { width: 60px; height: 60px; top: 60px; right: 380px; background: rgba(255,255,255,0.10); }
+  .deco-4 { width: 30px; height: 30px; top: 380px; right: 470px; background: rgba(255,255,255,0.12); }
+  .deco-5 { width: 90px; height: 90px; bottom: 40px; left: 420px; background: rgba(255,255,255,0.05); }
+  .deco-6 { width: 18px; height: 18px; top: 150px; left: 560px; background: rgba(255,255,255,0.18); }
+  .deco-7 { width: 14px; height: 14px; bottom: 130px; left: 700px; background: rgba(255,255,255,0.15); }
+  .deco-8 { width: 380px; height: 380px; top: -180px; left: -160px; background: rgba(255,255,255,0.04); }
+
+  .logo-wrap {
+    position: absolute;
+    left: 90px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.95);
+    border: 4px solid rgba(255, 255, 255, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  }
+
+  .logo-wrap img {
+    width: 240px;
+    height: 240px;
+    object-fit: contain;
+  }
+
+  .text-wrap {
+    position: absolute;
+    left: 430px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 540px;
+    color: #ffffff;
+  }
+
+  .title {
+    font-size: 64px;
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 14px;
+    letter-spacing: -0.5px;
+    text-shadow: 0 4px 18px rgba(0, 0, 0, 0.15);
+  }
+
+  .subtitle {
+    font-size: 28px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.92);
+    margin-bottom: 18px;
+  }
+
+  .school {
+    font-size: 18px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.75);
+    letter-spacing: 0.5px;
+  }
+
+  .divider {
+    width: 60px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.55);
+    border-radius: 2px;
+    margin: 20px 0;
+  }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="deco deco-8"></div>
+  <div class="deco deco-1"></div>
+  <div class="deco deco-2"></div>
+  <div class="deco deco-3"></div>
+  <div class="deco deco-4"></div>
+  <div class="deco deco-5"></div>
+  <div class="deco deco-6"></div>
+  <div class="deco deco-7"></div>
+
+  <div class="logo-wrap">
+    <img src="./logo.png" alt="Logo Bintang Juara" />
+  </div>
+
+  <div class="text-wrap">
+    <div class="title">Presensi Guru</div>
+    <div class="subtitle">Sistem Presensi Digital</div>
+    <div class="divider"></div>
+    <div class="school">Sekolah Islam Bintang Juara</div>
+  </div>
+</div>
+</body>
+</html>

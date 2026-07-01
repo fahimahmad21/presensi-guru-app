@@ -34,7 +34,7 @@ export async function subscribeFCM(): Promise<void> {
         'Website-Domain': WEBSITE_DOMAIN,
         'Auth-Socket':    authSocket,
       },
-      body: JSON.stringify({ endpoint: fcmToken }),
+      body: JSON.stringify({ endpoint: fcmToken, topic: 'MangoAbsent' }),
     });
     console.log('[FCM] subscribed');
   } catch (e) {
@@ -59,7 +59,7 @@ export async function unsubscribeFCM(): Promise<void> {
         'Website-Domain': WEBSITE_DOMAIN,
         'Auth-Socket':    authSocket,
       },
-      body: JSON.stringify({ endpoint: fcmToken }),
+      body: JSON.stringify({ endpoint: fcmToken, topic: 'MangoAbsent' }),
     });
     console.log('[FCM] unsubscribed');
   } catch (e) {

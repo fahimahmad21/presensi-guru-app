@@ -166,7 +166,7 @@ export default function LoginScreen({ navigation }: Props) {
             </LinearGradient>
           </TouchableOpacity>
 
-          <Text style={styles.footer}>v1.0.0 · <Text style={styles.footerBrand}>SD Islam Bintang Juara</Text> · 2026</Text>
+          <Text style={styles.footer}>v1.0.0 · <Text style={styles.footerBrand}>Sekolah Islam Bintang Juara</Text> · 2026</Text>
         </View>
       </ScrollView>
 

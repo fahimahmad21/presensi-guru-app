@@ -18,6 +18,7 @@
       },
       "googleServicesFile": "./google-services.json",
       "package": "com.bintangjuara.presensi",
+      "versionCode": 1,
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
@@ -36,7 +37,6 @@
       ]
     },
     "plugins": [
-      "./plugins/withArmOnly",
       "./plugins/withShrinkResources",
       [
         "expo-notifications",

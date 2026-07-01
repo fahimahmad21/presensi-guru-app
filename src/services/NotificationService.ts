@@ -9,12 +9,15 @@ import { getAbsentCheck, getAbsentReport } from './absentService';
 import { getPermitHistory } from './permitService';
 
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList:   true,
-    shouldPlaySound:  true,
-    shouldSetBadge:   true,
-  }),
+  handleNotification: async (notification) => {
+    const isRemotePush = (notification.request.trigger as any)?.type === 'push';
+    return {
+      shouldShowBanner: !isRemotePush,
+      shouldShowList:   !isRemotePush,
+      shouldPlaySound:  !isRemotePush,
+      shouldSetBadge:   !isRemotePush,
+    };
+  },
 });
 
 export async function mintaIzinNotifikasi(): Promise<boolean> {

@@ -104,7 +104,7 @@ function UbahKataSandiSheet({ visible, onClose, onSuccess }: UbahSandiProps) {
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.overlay}>
           <Pressable style={{ flex: 1 }} onPress={onClose} />
@@ -801,9 +801,9 @@ function getKontakItems(colors: ColorPalette, isDark: boolean): {
   scheme: string;
 }[] {
   return [
-    { icon: 'logo-whatsapp', label: 'WhatsApp Admin',  nilai: '0812-0000-0000', color: isDark ? '#66BB6A' : '#25D366', bg: isDark ? '#1B3320' : '#E8F8EE', scheme: 'whatsapp://send?phone=628120000000' },
-    { icon: 'call-outline',  label: 'Telepon Sekolah', nilai: '(021) 000-0000',  color: colors.primary, bg: colors.primaryXLight, scheme: 'tel:0210000000' },
-    { icon: 'mail-outline',  label: 'Email Admin',     nilai: 'admin@bintangjuara.sch.id', color: colors.accentDark, bg: colors.accentLight, scheme: 'mailto:admin@bintangjuara.sch.id' },
+    { icon: 'logo-whatsapp', label: 'WhatsApp Admin',  nilai: '0896-1676-7100', color: isDark ? '#66BB6A' : '#25D366', bg: isDark ? '#1B3320' : '#E8F8EE', scheme: 'whatsapp://send?phone=6289616767100' },
+    { icon: 'call-outline',  label: 'Telepon Sekolah', nilai: '0896-1676-7100',  color: colors.primary, bg: colors.primaryXLight, scheme: 'tel:089616767100' },
+    { icon: 'mail-outline',  label: 'Email Admin',     nilai: 'admin.it@bintangjuara.sch.id', color: colors.accentDark, bg: colors.accentLight, scheme: 'mailto:admin.it@bintangjuara.sch.id' },
   ];
 }
 

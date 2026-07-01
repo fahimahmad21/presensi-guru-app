@@ -86,7 +86,7 @@ export default function SplashLoadingScreen({ isReady, onHide }: Props) {
           </View>
 
           {/* Nama sekolah */}
-          <Text style={styles.schoolName}>Bintang Juara</Text>
+          <Text style={styles.schoolName}>Sekolah Islam Bintang Juara</Text>
           <Text style={styles.appName}>Presensi Guru Digital</Text>
 
           {/* Divider */}
